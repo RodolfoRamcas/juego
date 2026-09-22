@@ -1,0 +1,10 @@
+# Variables de entorno con claves reales: nunca deben subirse al repositorio
+.env
+.env.local
+
+# Configuración local de Supabase con claves reales (usa supabaseConfig.example.js como base)
+src/config/supabaseConfig.js
+
+# Archivos del sistema operativo / editor
+.DS_Store
+Thumbs.db
