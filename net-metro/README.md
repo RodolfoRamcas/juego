@@ -67,7 +67,7 @@ El proyecto integra de manera nativa dos tecnologías complementarias a la progr
 
 1. **Supabase Cloud (BaaS / PostgreSQL):**
    - Base de datos relacional en la nube para registrar y consultar las puntuaciones más altas del **Ranking Global de Ingenieros de Red**.
-   - Admite conexión en tiempo real y cuenta con un sistema de respaldo local (LocalStorage) en caso de juego fuera de línea.
+   - El Leaderboard es exclusivamente en línea: si no hay conexión a Supabase, no se pueden guardar ni consultar puntuaciones (no existe respaldo local ni datos de relleno).
 2. **Generación Procedural y Web Audio API:**
    - **Algoritmo de dispersión estocástica:** Ubicación inteligente de nuevos nodos en el mapa con prevención de colisiones espaciales.
    - **Síntesis sonora dinámica:** Generación en tiempo real de tonos armónicos pentatónicos y alertas acústicas de congestión mediante la `Web Audio API` sin necesidad de archivos MP3 externos.

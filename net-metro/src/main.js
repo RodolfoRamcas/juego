@@ -68,12 +68,12 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     if (result.success) {
-      statusMsg.textContent = result.mode === 'cloud'
-        ? '✅ ¡Récord guardado exitosamente en Supabase Cloud!'
-        : '✅ Récord guardado en ranking local (Modo Offline).';
+      statusMsg.textContent = '✅ ¡Récord guardado exitosamente en el ranking global!';
       document.getElementById('btn-submit-score').disabled = true;
     } else {
-      statusMsg.textContent = 'Error al registrar la puntuación.';
+      statusMsg.textContent = result.error
+        ? `❌ ${result.error}`
+        : 'Error al registrar la puntuación.';
       statusMsg.className = 'status-msg error';
     }
   });
@@ -268,7 +268,9 @@ window.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
 
     if (!scores || scores.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;">Aún no hay puntuaciones registradas. ¡Sé el primero!</td></tr>';
+      tbody.innerHTML = source === 'cloud'
+        ? '<tr><td colspan="6" style="text-align:center; padding: 20px;">Aún no hay puntuaciones registradas. ¡Sé el primero!</td></tr>'
+        : '<tr><td colspan="6" style="text-align:center; padding: 20px;">⚠️ Sin conexión a la base de datos: el ranking global no está disponible ahora.</td></tr>';
       return;
     }
 

@@ -1,6 +1,7 @@
 /**
  * NETMETRO - SERVICIO DE SUPABASE Y LEADERBOARD GLOBAL
- * Soporta conexión en tiempo real con Supabase y modo offline con LocalStorage.
+ * El Leaderboard es exclusivamente en línea: sin conexión a Supabase no hay puntuaciones que
+ * consultar ni forma de guardar una (no existe respaldo en LocalStorage ni datos de relleno).
  */
 
 class SupabaseService {
@@ -9,7 +10,6 @@ class SupabaseService {
     this.isOnline = false;
     this.tableName = 'leaderboard';
     this.storageKey = 'netmetro_supabase_config';
-    this.localLeaderboardKey = 'netmetro_local_scores';
 
     this.init();
   }
@@ -24,7 +24,7 @@ class SupabaseService {
     try {
       ({ SUPABASE_CONFIG: supabaseConfig } = await import('../config/supabaseConfig.js'));
     } catch (e) {
-      console.warn('supabaseConfig.js no disponible: el juego sigue funcionando con el Leaderboard local.', e);
+      console.warn('supabaseConfig.js no disponible: el juego sigue funcionando, pero el Leaderboard quedará sin conexión.', e);
     }
 
     if (supabaseConfig && supabaseConfig.url && supabaseConfig.anonKey && window.supabase) {
@@ -49,11 +49,6 @@ class SupabaseService {
       } catch (e) {
         console.warn('Configuración de Supabase inválida en almacenamiento local:', e);
       }
-    }
-
-    // Inicializar scores locales por defecto si no existen
-    if (!localStorage.getItem(this.localLeaderboardKey)) {
-      this.initDefaultLocalScores();
     }
   }
 
@@ -103,7 +98,13 @@ class SupabaseService {
     }
   }
 
+  // Guarda una puntuación EXCLUSIVAMENTE en Supabase. Sin conexión, no hay dónde guardarla:
+  // se devuelve un fallo explícito en vez de simular éxito con un guardado local.
   async saveScore({ playerName, scorePackets, weeksSurvived, levelName }) {
+    if (!this.client) {
+      return { success: false, error: 'Sin conexión a la base de datos: no se pudo guardar el récord.' };
+    }
+
     const record = {
       player_name: playerName || 'Ingeniero Anónimo',
       score_packets: parseInt(scorePackets, 10) || 0,
@@ -112,78 +113,45 @@ class SupabaseService {
       created_at: new Date().toISOString()
     };
 
-    // Guardar siempre en caché local
-    this.saveToLocalStorage(record);
-
-    // Si Supabase está conectado, guardar en la nube
-    if (this.client) {
-      try {
-        const { data, error } = await this.client
-          .from(this.tableName)
-          .insert([record]);
-
-        if (error) {
-          console.warn('Error al guardar en Supabase (guardado en local):', error.message);
-          return { success: true, mode: 'local', error: error.message };
-        }
-        return { success: true, mode: 'cloud', data };
-      } catch (err) {
-        console.warn('Fallo de red con Supabase (guardado en local):', err.message);
-        return { success: true, mode: 'local', error: err.message };
-      }
-    }
-
-    return { success: true, mode: 'local' };
-  }
-
-  async getTopScores(limit = 10) {
-    if (this.client) {
-      try {
-        const { data, error } = await this.client
-          .from(this.tableName)
-          .select('*')
-          .order('score_packets', { ascending: false })
-          .limit(limit);
-
-        if (!error && data && data.length > 0) {
-          this.isOnline = true;
-          return { scores: data, source: 'cloud' };
-        }
-      } catch (e) {
-        console.warn('Error obteniendo puntuaciones de Supabase, usando local:', e);
-      }
-    }
-
-    // Retornar fallback local
-    const local = this.getLocalScores();
-    return { scores: local.slice(0, limit), source: 'local' };
-  }
-
-  saveToLocalStorage(record) {
-    const scores = this.getLocalScores();
-    scores.push(record);
-    scores.sort((a, b) => b.score_packets - a.score_packets);
-    localStorage.setItem(this.localLeaderboardKey, JSON.stringify(scores.slice(0, 30)));
-  }
-
-  getLocalScores() {
     try {
-      const data = localStorage.getItem(this.localLeaderboardKey);
-      return data ? JSON.parse(data) : [];
-    } catch {
-      return [];
+      const { data, error } = await this.client
+        .from(this.tableName)
+        .insert([record]);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
     }
   }
 
-  initDefaultLocalScores() {
-    const defaultScores = [
-      { player_name: 'Rodolfo Ramírez', score_packets: 480, weeks_survived: 7, level_name: 'Global Cloud Backbone', created_at: new Date().toISOString() },
-      { player_name: 'Jorge del Angel', score_packets: 415, weeks_survived: 6, level_name: 'Metropolitan ISP', created_at: new Date().toISOString() },
-      { player_name: 'SysAdmin_Pro', score_packets: 280, weeks_survived: 5, level_name: 'Metropolitan ISP', created_at: new Date().toISOString() },
-      { player_name: 'NetEngineer', score_packets: 190, weeks_survived: 3, level_name: 'Campus LAN', created_at: new Date().toISOString() },
-      { player_name: 'Junior_Dev', score_packets: 95, weeks_survived: 2, level_name: 'Campus LAN', created_at: new Date().toISOString() }
-    ];
-    localStorage.setItem(this.localLeaderboardKey, JSON.stringify(defaultScores));
+  // Consulta el Top de puntuaciones EXCLUSIVAMENTE desde Supabase. Sin conexión (o si falla la
+  // consulta), devuelve una lista vacía en vez de datos locales o de relleno.
+  async getTopScores(limit = 10) {
+    if (!this.client) {
+      return { scores: [], source: 'offline' };
+    }
+
+    try {
+      const { data, error } = await this.client
+        .from(this.tableName)
+        .select('*')
+        .order('score_packets', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.warn('Error obteniendo puntuaciones de Supabase:', error.message);
+        return { scores: [], source: 'error' };
+      }
+
+      this.isOnline = true;
+      return { scores: data || [], source: 'cloud' };
+    } catch (e) {
+      console.warn('Error obteniendo puntuaciones de Supabase:', e);
+      return { scores: [], source: 'error' };
+    }
   }
 }
 
