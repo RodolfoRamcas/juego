@@ -7,7 +7,7 @@ import {
   TIME_CONFIG, GAME_SPEEDS, GRID_CELL_SIZE, PIECE_COST_PER_TILE,
   MAX_PACKET_LIFETIME, MAX_LOST_PACKETS, ROAD_COLOR, ROAD_GLOW, ROAD_BLOCKED_COLOR,
   WORLD_SIZE_MULTIPLIER, NODE_RECEIVE_COOLDOWN, LOAD_BALANCER_RECEIVE_COOLDOWN, SWITCH_BURST_CAPACITY,
-  DDOS_RECEIVER_LOCKOUT_SECONDS
+  DDOS_RECEIVER_LOCKOUT_SECONDS, RESTART_HOLD_SECONDS
 } from '../config/constants.js';
 import { GAME_CONFIG } from '../config/levels.js';
 import { RoadGrid } from './RoadGrid.js';
@@ -45,6 +45,12 @@ export class Engine {
     this.requestLimiters = 0;      // Inicia con 0 limitadores de requests
     this.activeTool = 'road';      // 'road' | 'accelerator' | 'balancer' | 'switch' | 'reinforcement' | 'limiter'
     this.alarmTimer = 0;
+
+    // Reinicio rápido: mantener presionada la tecla R reinicia la partida con un layout de
+    // figuras nuevo (ver update() y setRestartKeyHeld). Se exige mantenerla, no solo pulsarla,
+    // para evitar perder la red construida por un toque accidental.
+    this.isRestartKeyDown = false;
+    this.restartHoldTimer = 0;
 
     // Cámara: el mundo de la grilla es más grande que la pantalla, así que la vista se
     // desplaza sobre él en vez de estar fija (evita nodos generados fuera de la vista inicial)
@@ -296,6 +302,28 @@ export class Engine {
     return true;
   }
 
+  // Llamado desde main.js en cada keydown/keyup de la tecla R (y al perder el foco de la
+  // ventana, para no dejar el conteo "pegado" si el jugador suelta la tecla fuera del juego).
+  setRestartKeyHeld(held) {
+    this.isRestartKeyDown = held;
+    if (!held) {
+      this.restartHoldTimer = 0;
+      this.updateRestartHoldUI();
+    }
+  }
+
+  // Barra de progreso semitransparente que aparece mientras se mantiene R presionada, para que
+  // el reinicio se sienta intencional y nunca sea una sorpresa.
+  updateRestartHoldUI() {
+    const container = document.getElementById('restart-hold-indicator');
+    const fill = document.getElementById('restart-hold-fill');
+    if (!container || !fill) return;
+
+    const ratio = Math.min(1, this.restartHoldTimer / RESTART_HOLD_SECONDS);
+    container.classList.toggle('hidden', ratio <= 0);
+    fill.style.width = `${(ratio * 100).toFixed(1)}%`;
+  }
+
   setSpeed(speedValue) {
     this.speed = speedValue;
     document.getElementById('btn-speed-pause').classList.toggle('active', speedValue === GAME_SPEEDS.PAUSE);
@@ -454,6 +482,25 @@ export class Engine {
     // simulación): debe seguir funcionando aunque el juego esté en pausa (velocidad 0)
     if (this.state === 'PLAYING') {
       this.inputHandler.updateCameraPan(clampedRawDt);
+    }
+
+    // Reinicio rápido (mantener R): también usa tiempo real, para que funcione incluso en
+    // pausa. Al completar el umbral, reinicia la partida con un layout de figuras nuevo
+    // (startGame() ya coloca los nodos iniciales en posiciones aleatorias).
+    if (this.state === 'PLAYING' && this.isRestartKeyDown) {
+      this.restartHoldTimer += clampedRawDt;
+      this.updateRestartHoldUI();
+      if (this.restartHoldTimer >= RESTART_HOLD_SECONDS) {
+        this.isRestartKeyDown = false;
+        this.restartHoldTimer = 0;
+        this.startGame();
+        return;
+      }
+    } else if (this.restartHoldTimer > 0) {
+      // Se soltó la tecla, o la partida terminó (Game Over) mientras se mantenía presionada:
+      // no dejar la barra de progreso a medias.
+      this.restartHoldTimer = 0;
+      this.updateRestartHoldUI();
     }
 
     if (this.state === 'PLAYING') {

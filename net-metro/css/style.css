@@ -124,3 +124,59 @@ html, body {
     transform: translateY(0);
   }
 }
+
+/* BARRA DE REINICIO RÁPIDO (mantener R): centrada, semitransparente, solo visible mientras
+   se mantiene la tecla presionada. */
+#restart-hold-indicator.hidden {
+  display: none;
+}
+
+#restart-hold-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 28px;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.restart-hold-label {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fecdd3;
+}
+
+.restart-hold-track {
+  width: 220px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.restart-hold-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent-rose);
+  border-radius: inherit;
+  transition: width 0.05s linear;
+}
+
+.restart-hold-hint {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.6);
+}

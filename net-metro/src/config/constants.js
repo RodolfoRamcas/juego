@@ -29,6 +29,11 @@ export const WORLD_SIZE_MULTIPLIER = 1.12;
 // Velocidad de desplazamiento de cámara con teclado (WASD / flechas), en píxeles/segundo
 export const CAMERA_PAN_SPEED = 900;
 
+// Segundos que hay que mantener presionada la tecla R para reiniciar la partida actual (con un
+// layout de figuras nuevo y aleatorio). Se exige "mantener" en vez de una sola pulsación para
+// que no se reinicie por accidente toda la red construida.
+export const RESTART_HOLD_SECONDS = 1.2;
+
 // Piezas de presupuesto que cuesta tender un tramo de cable
 // (equivale a un costo por píxel, ya que cada tramo mide GRID_CELL_SIZE px fijos)
 export const PIECE_COST_PER_TILE = 1;

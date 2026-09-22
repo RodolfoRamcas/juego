@@ -27,6 +27,15 @@
     <!-- PESTAÑA CENTRAL SEMITRANSPARENTE: solo para eventos grandes (DDoS, Demanda Pico) -->
     <div id="event-banner-container"></div>
 
+    <!-- BARRA DE REINICIO RÁPIDO: aparece solo mientras se mantiene presionada la tecla R -->
+    <div id="restart-hold-indicator" class="hidden">
+      <span class="restart-hold-label">Reiniciando partida...</span>
+      <div class="restart-hold-track">
+        <div id="restart-hold-fill" class="restart-hold-fill"></div>
+      </div>
+      <span class="restart-hold-hint">Suelta R para cancelar</span>
+    </div>
+
     <!-- PESTAÑA PARA OCULTAR/MOSTRAR EL PANEL SUPERIOR -->
     <button id="btn-toggle-top-hud" class="hud-layer hidden hud-toggle-tab hud-tab-top" title="Ocultar panel superior (H)">▲</button>
 
@@ -357,7 +366,7 @@
         </div>
 
         <div class="controls-guide">
-          <strong>Atajos y Controles:</strong> [Arrastrar] Tender cable | [Clic Derecho] Retirar tramo | [WASD/Flechas, Clic Central o Rueda] Mover cámara | [🎯] Centrar cámara | [H] Ocultar/Mostrar paneles | [Espacio] Pausar | [1] 1x Normal | [2] 2x Rápido
+          <strong>Atajos y Controles:</strong> [Arrastrar] Tender cable | [Clic Derecho] Retirar tramo | [WASD/Flechas, Clic Central o Rueda] Mover cámara | [🎯] Centrar cámara | [H] Ocultar/Mostrar paneles | [Espacio] Pausar | [1] 1x Normal | [2] 2x Rápido | [Mantener R] Reiniciar partida (layout nuevo)
         </div>
       </div>
     </section>

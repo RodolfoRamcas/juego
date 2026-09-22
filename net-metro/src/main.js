@@ -237,7 +237,23 @@ window.addEventListener('DOMContentLoaded', () => {
       const shouldCollapse = !(topHudCollapsed && bottomHudCollapsed);
       applyTopHudCollapse(shouldCollapse);
       applyBottomHudCollapse(shouldCollapse);
+    } else if (e.code === 'KeyR' && !e.repeat) {
+      // Mantener R reinicia la partida (ver Engine.update): e.repeat evita reiniciar el
+      // conteo en cada evento de auto-repetición del sistema operativo mientras sigue abajo.
+      engine.setRestartKeyHeld(true);
     }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'KeyR') {
+      engine.setRestartKeyHeld(false);
+    }
+  });
+
+  // Si la ventana pierde el foco (alt+tab, cambiar de app) con R presionada, el keyup nunca
+  // llega: sin esto, la barra de reinicio quedaría "pegada" a medio llenar.
+  window.addEventListener('blur', () => {
+    engine.setRestartKeyHeld(false);
   });
 
   // ==================== FUNCIONES AUXILIARES ====================
