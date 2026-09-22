@@ -236,18 +236,23 @@ export class TrafficGenerator {
     return senders[senders.length - 1];
   }
 
-  // Evento de Demanda Pico (Flash Crowd): en cada ráfaga, genera un paquete desde CADA nodo
-  // emisor con receptor disponible (no solo uno aleatorio), así la presión de tráfico masivo
-  // golpea a toda la red a la vez y escala con su tamaño.
-  spawnBurstFromAllSenders() {
+  // Evento de Demanda Pico (Flash Crowd): en cada ráfaga, genera un paquete desde una fracción
+  // de los nodos emisores con receptor disponible (`fraction`: 1 = todos), elegidos al azar en
+  // cada ráfaga, así la presión de tráfico masivo escala con el tamaño de la red sin depender
+  // de un único emisor aleatorio.
+  spawnBurstFromAllSenders(fraction = 1) {
     const shapesWithReceiver = new Set();
     for (const node of this.engine.nodes) {
       if (node.role === 'receiver') shapesWithReceiver.add(node.shape);
     }
 
+    const eligibleSenders = this.engine.nodes.filter(
+      n => n.role === 'sender' && shapesWithReceiver.has(n.shape)
+    );
+    const senders = fraction >= 1 ? eligibleSenders : this.pickRandomSubset(eligibleSenders, fraction);
+
     let spawned = 0;
-    for (const node of this.engine.nodes) {
-      if (node.role !== 'sender' || !shapesWithReceiver.has(node.shape)) continue;
+    for (const node of senders) {
       const packet = new Packet(node, node.shape);
       if (node.addPacket(packet)) {
         this.engine.attemptRoutePacket(node, packet);
@@ -257,10 +262,19 @@ export class TrafficGenerator {
     return spawned;
   }
 
-  triggerDemandSpike(durationSeconds = 8, intervalMs = 300) {
+  // Elige al azar una fracción de los elementos de `list` (redondeando hacia arriba y con al
+  // menos 1 si la lista no está vacía), sin repetir ninguno.
+  pickRandomSubset(list, fraction) {
+    if (list.length === 0) return [];
+    const count = Math.max(1, Math.round(list.length * fraction));
+    const shuffled = [...list].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
+  }
+
+  triggerDemandSpike(durationSeconds = 8, intervalMs = 300, senderFraction = 1) {
     const interval = setInterval(() => {
       if (this.engine.state !== 'PLAYING') return;
-      this.spawnBurstFromAllSenders();
+      this.spawnBurstFromAllSenders(senderFraction);
     }, intervalMs);
 
     setTimeout(() => {

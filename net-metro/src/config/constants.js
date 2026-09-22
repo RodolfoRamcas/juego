@@ -210,11 +210,17 @@ export const FLASH_CROWD_MIN_PER_WEEK = 1;
 
 // Intervalo (ms) entre cada ráfaga de paquetes durante una Demanda Pico "pesada" (desde
 // FLASH_CROWD_HEAVY_FROM_WEEK), y cuántos segundos dura el evento. En cada ráfaga se genera un
-// paquete desde CADA nodo emisor disponible (no solo uno aleatorio), así que la presión total
-// escala con el tamaño de la red: se subió el intervalo y se bajó la duración respecto a la
-// versión original para que deje de sobresaturar la red y causar una pérdida automática.
+// paquete desde una FRACCIÓN de los nodos emisores disponibles (ver
+// FLASH_CROWD_HEAVY_SENDER_FRACTION), así que la presión total sigue escalando con el tamaño
+// de la red sin llegar a golpear a todos los emisores a la vez en cada ráfaga.
 export const FLASH_CROWD_BURST_INTERVAL_MS = 700;
 export const FLASH_CROWD_DURATION_SECONDS = 5;
+
+// Fracción de los nodos emisores elegibles que disparan un paquete en cada ráfaga de la
+// Demanda Pico "pesada" (1 = todos, como antes; 0.5 = la mitad, elegidos al azar en cada
+// ráfaga). Se bajó de 1 a esto para que la versión pesada siga mandando más paquetes que la
+// versión liviana previa a la Semana 5, pero notablemente menos que antes de este ajuste.
+export const FLASH_CROWD_HEAVY_SENDER_FRACTION = 0.5;
 
 // Versión liviana de la Demanda Pico (antes de FLASH_CROWD_HEAVY_FROM_WEEK): un solo paquete
 // aleatorio por ráfaga, igual que el comportamiento original del evento.
