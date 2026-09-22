@@ -68,8 +68,8 @@ export const UPGRADE_TYPES = {
     id: 'load_balancer',
     name: 'Balanceador de Carga',
     icon: '⚖️',
-    desc: 'Instálalo en un nodo para reducir su tiempo de enfriamiento entre entregas a 0.5s (recibe paquetes mucho más rápido). No se puede combinar con un Switch en el mismo nodo.',
-    isDraggable: true
+    desc: 'Se activa solo: mientras dure un ataque DDoS, reduce a la mitad el bloqueo de recepción de los nodos que sean golpeados por paquetes maliciosos. Solo puedes tener uno a la vez.',
+    isDraggable: false
   },
   PROTOCOL_ACCELERATOR: {
     id: 'protocol_accelerator',
@@ -89,14 +89,14 @@ export const UPGRADE_TYPES = {
     id: 'network_switch',
     name: 'Switch de Red Gigabit',
     icon: '🔀',
-    desc: 'Instálalo en el nodo que elijas: le permite aceptar hasta 5 entregas seguidas sin cooldown entre ellas (como varios puertos a la vez), además de capacidad extra de búfer. No se puede combinar con un Balanceador en el mismo nodo.',
+    desc: 'Instálalo en el nodo que elijas: le permite aceptar hasta 5 entregas seguidas sin cooldown entre ellas (como varios puertos a la vez), reduce a 0.5s su cooldown normal, y suma capacidad extra de búfer.',
     isDraggable: true
   },
   CABLE_REINFORCEMENT: {
     id: 'cable_reinforcement',
     name: 'Refuerzo de Cable',
     icon: '🔩',
-    desc: 'Te da 3 Piezas de Refuerzo: instálalas sobre tramos de cable que elijas para reducir en 75% la probabilidad de que ese tramo sea cortado por mantenimiento.',
+    desc: 'Te da 6 Piezas de Refuerzo: instálalas sobre tramos de cable que elijas para reducir en 75% la probabilidad de que ese tramo sea cortado por mantenimiento.',
     isDraggable: false
   },
   REQUEST_LIMITER: {
@@ -128,7 +128,8 @@ export const DEFAULT_NODE_BUFFER_CAPACITY = 6;
 // Aplica desde el arranque de la partida (no depende de la semana).
 export const NODE_RECEIVE_COOLDOWN = 1.0;
 
-// Cooldown de recepción reducido que otorga el Balanceador de Carga al nodo donde se instala:
+// Cooldown de recepción reducido que otorga el Switch de Red Gigabit al nodo donde se instala
+// (antes era exclusivo del Balanceador de Carga, que ahora es un objeto pasivo distinto):
 // reemplaza a NODE_RECEIVE_COOLDOWN en ese nodo específico (ver Engine.onPacketDelivered).
 export const LOAD_BALANCER_RECEIVE_COOLDOWN = 0.5;
 
@@ -143,6 +144,14 @@ export const SWITCH_BURST_CAPACITY = 5;
 // muerto (cada uno espera la casilla que ocupa el otro) y detienen toda la línea. Con 2, ambos
 // caben un instante y pueden cruzarse sin trabar el resto de la red.
 export const TILE_MAX_OCCUPANTS = 2;
+
+// Si un paquete NORMAL (no DDoS) pasa esta cantidad de segundos sin cambiar de posición en un
+// tramo de cable (línea saturada por congestión o corte), se reencola en el último nodo
+// visitado para que el Router le busque otro camino, en vez de quedarse esperando ahí
+// indefinidamente. Solo aplica mientras está sobre un tramo de cable: si ya llegó a la puerta
+// de un nodo y espera su cooldown de recepción, ese es un problema distinto (disponibilidad
+// del destino, no de la ruta) y no dispara este reencolado (ver Packet.update).
+export const PACKET_STUCK_REROUTE_SECONDS = 3.0;
 
 // Peso relativo del ataque DDoS al elegir un evento aleatorio (ver EventSystem). Antes de la
 // Semana 4 todos los eventos disponibles pesan 1 (igual probabilidad); desde la Semana 4 el
@@ -219,7 +228,7 @@ export const FLASH_CROWD_LIGHT_DURATION_SECONDS = 6;
 
 // Cuántas "Piezas de Refuerzo" otorga cada Refuerzo de Cable que el jugador elige como mejora
 // semanal.
-export const CABLE_REINFORCEMENT_GRANT_AMOUNT = 3;
+export const CABLE_REINFORCEMENT_GRANT_AMOUNT = 6;
 
 // Peso relativo (respecto a 1 de un tramo normal) que tiene un tramo reforzado al sortear cuál
 // tramo cortar en un evento de Corte de Fibra: 0.25 significa 75% menos probabilidad relativa
@@ -239,6 +248,13 @@ export const DDOS_PACKET_STATIONARY_DROP_TIME = 0.5;
 // Engine.onDDoSPacketHit), así que el conteo real solo empieza a correr tras el último paquete
 // DDoS que llegue, no desde el primero.
 export const DDOS_RECEIVER_LOCKOUT_SECONDS = 10;
+
+// El Balanceador de Carga ahora es un objeto pasivo de un solo uso (como el Firewall, no se
+// puede tener más de uno ni instalarlo en un nodo): mientras esté activo, cualquier nodo
+// bloqueado por un impacto DDoS (ver Engine.onDDoSPacketHit) recibe solo esta fracción del
+// bloqueo normal (0.5 = la mitad de DDOS_RECEIVER_LOCKOUT_SECONDS) durante la duración del
+// ataque.
+export const LOAD_BALANCER_DDOS_LOCKOUT_MULTIPLIER = 0.5;
 
 // Peso relativo (respecto a 1 de un emisor normal) que tiene un nodo con Limitador de Requests
 // instalado al sortear qué emisor origina cada paquete de un ataque DDoS dirigido a su forma:

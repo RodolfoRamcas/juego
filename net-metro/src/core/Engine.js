@@ -7,7 +7,7 @@ import {
   TIME_CONFIG, GAME_SPEEDS, GRID_CELL_SIZE, PIECE_COST_PER_TILE,
   MAX_PACKET_LIFETIME, MAX_LOST_PACKETS, ROAD_COLOR, ROAD_GLOW, ROAD_BLOCKED_COLOR,
   WORLD_SIZE_MULTIPLIER, NODE_RECEIVE_COOLDOWN, LOAD_BALANCER_RECEIVE_COOLDOWN, SWITCH_BURST_CAPACITY,
-  DDOS_RECEIVER_LOCKOUT_SECONDS, RESTART_HOLD_SECONDS
+  DDOS_RECEIVER_LOCKOUT_SECONDS, LOAD_BALANCER_DDOS_LOCKOUT_MULTIPLIER, RESTART_HOLD_SECONDS
 } from '../config/constants.js';
 import { GAME_CONFIG } from '../config/levels.js';
 import { RoadGrid } from './RoadGrid.js';
@@ -39,11 +39,10 @@ export class Engine {
     // Presupuesto de construcción e inventario
     this.roadBudget = 0;           // Piezas de cable disponibles (sin tope máximo)
     this.protocolAccelerators = 0; // Inicia con 0 especiales
-    this.loadBalancers = 0;        // Inicia con 0 balanceadores
     this.networkSwitches = 0;      // Inicia con 0 switches (se colocan a elección del jugador)
     this.cableReinforcements = 0;  // Inicia con 0 piezas de refuerzo
     this.requestLimiters = 0;      // Inicia con 0 limitadores de requests
-    this.activeTool = 'road';      // 'road' | 'accelerator' | 'balancer' | 'switch' | 'reinforcement' | 'limiter'
+    this.activeTool = 'road';      // 'road' | 'accelerator' | 'switch' | 'reinforcement' | 'limiter'
     this.alarmTimer = 0;
 
     // Reinicio rápido: mantener presionada la tecla R reinicia la partida con un layout de
@@ -58,6 +57,10 @@ export class Engine {
 
     // Hardware y defensas
     this.hasFirewall = false;
+    // Balanceador de Carga: objeto pasivo de un solo uso (como el Firewall). Mientras esté
+    // activo, cualquier nodo golpeado por un impacto DDoS recibe solo la mitad del bloqueo de
+    // recepción normal durante la duración del ataque (ver Engine.onDDoSPacketHit).
+    this.hasLoadBalancer = false;
 
     // Presión de tiempo: paquetes perdidos por exceder su tiempo límite de entrega
     this.packetsLost = 0;
@@ -153,11 +156,11 @@ export class Engine {
     this.activePackets = [];
     this.lossEffects = [];
     this.hasFirewall = false;
+    this.hasLoadBalancer = false;
 
     // Presupuesto inicial de piezas de cable e inventario especial
     this.roadBudget = levelConfig.initialRoadBudget || 40;
     this.protocolAccelerators = 0;
-    this.loadBalancers = 0;
     this.networkSwitches = 0;
     this.cableReinforcements = 0;
     this.requestLimiters = 0;
@@ -191,6 +194,7 @@ export class Engine {
     this.updateHUDLabels();
     this.updateRoadUI();
     this.updateFirewallBadge();
+    this.updateBalancerBadge();
     document.getElementById('game-hud').classList.remove('hidden');
     document.getElementById('road-tray').classList.remove('hidden');
     document.getElementById('btn-toggle-top-hud').classList.remove('hidden');
@@ -264,23 +268,9 @@ export class Engine {
     return true;
   }
 
-  applyBalancerToNode(node) {
-    if (this.loadBalancers <= 0) return false;
-    if (node.hasLoadBalancer) return false;
-    if (node.hasSwitch) return false;
-
-    node.installLoadBalancer();
-    this.loadBalancers--;
-    this.activeTool = 'road';
-    this.soundManager.playLineConnected();
-    this.updateRoadUI();
-    return true;
-  }
-
   applySwitchToNode(node) {
     if (this.networkSwitches <= 0) return false;
     if (node.hasSwitch) return false;
-    if (node.hasLoadBalancer) return false;
 
     node.installSwitch();
     this.networkSwitches--;
@@ -360,8 +350,8 @@ export class Engine {
 
     // Cooldown de recepción: el nodo queda "enfriándose" antes de poder aceptar otro paquete,
     // así los siguientes forman una cola visible esperando su turno en la casilla de entrada.
-    // El Balanceador de Carga reduce este enfriamiento en el nodo donde está instalado.
-    const baseCooldown = node.hasLoadBalancer ? LOAD_BALANCER_RECEIVE_COOLDOWN : NODE_RECEIVE_COOLDOWN;
+    // El Switch reduce este enfriamiento en el nodo donde está instalado.
+    const baseCooldown = node.hasSwitch ? LOAD_BALANCER_RECEIVE_COOLDOWN : NODE_RECEIVE_COOLDOWN;
 
     if (node.hasSwitch) {
       // El Switch conmuta varios "puertos" a la vez: acepta entregas seguidas sin cooldown
@@ -386,11 +376,17 @@ export class Engine {
 
   // Un paquete DDoS logró llegar al nodo receptor: no cuenta como entrega legítima (no suma a
   // las métricas de rendimiento), y en vez del cooldown normal, bloquea por completo la
-  // recepción del nodo durante DDOS_RECEIVER_LOCKOUT_SECONDS. Cada impacto reinicia el bloqueo
-  // desde cero, así que el conteo real solo arranca tras el ÚLTIMO paquete DDoS que llegue.
+  // recepción del nodo durante DDOS_RECEIVER_LOCKOUT_SECONDS (la mitad si el Balanceador de
+  // Carga está activo). Cada impacto reinicia el bloqueo desde cero, así que el conteo real
+  // solo arranca tras el ÚLTIMO paquete DDoS que llegue.
   onDDoSPacketHit(packet, node) {
-    node.receiveCooldownTimer = DDOS_RECEIVER_LOCKOUT_SECONDS;
-    node.ddosLockoutTimer = DDOS_RECEIVER_LOCKOUT_SECONDS;
+    const lockoutDuration = this.hasLoadBalancer
+      ? DDOS_RECEIVER_LOCKOUT_SECONDS * LOAD_BALANCER_DDOS_LOCKOUT_MULTIPLIER
+      : DDOS_RECEIVER_LOCKOUT_SECONDS;
+
+    node.receiveCooldownTimer = lockoutDuration;
+    node.ddosLockoutTimer = lockoutDuration;
+    node.ddosLockoutMaxDuration = lockoutDuration;
     node.switchBurstCount = 0;
     this.soundManager.playWarningAlarm();
 
@@ -906,6 +902,13 @@ export class Engine {
     }
   }
 
+  updateBalancerBadge() {
+    const badge = document.getElementById('balancer-badge');
+    if (badge) {
+      badge.classList.toggle('hidden', !this.hasLoadBalancer);
+    }
+  }
+
   updateRoadUI() {
     // 1. Contador de presupuesto de piezas de cable
     const countEl = document.getElementById('road-budget-count');
@@ -927,14 +930,6 @@ export class Engine {
       badgeAcc.textContent = `${this.protocolAccelerators} disp.`;
       toolAcc.classList.toggle('disabled', this.protocolAccelerators <= 0);
       toolAcc.classList.toggle('active', this.activeTool === 'accelerator');
-    }
-
-    const badgeBal = document.getElementById('badge-count-balancer');
-    const toolBal = document.getElementById('tool-balancer');
-    if (badgeBal && toolBal) {
-      badgeBal.textContent = `${this.loadBalancers} disp.`;
-      toolBal.classList.toggle('disabled', this.loadBalancers <= 0);
-      toolBal.classList.toggle('active', this.activeTool === 'balancer');
     }
 
     const badgeSwitch = document.getElementById('badge-count-switch');

@@ -121,14 +121,6 @@ export class InputHandler {
       return;
     }
 
-    if (this.engine.activeTool === 'balancer') {
-      const clickedNode = this.getNodeAt(world.x, world.y);
-      if (clickedNode) {
-        this.engine.applyBalancerToNode(clickedNode);
-      }
-      return;
-    }
-
     if (this.engine.activeTool === 'switch') {
       const clickedNode = this.getNodeAt(world.x, world.y);
       if (clickedNode) {
@@ -316,10 +308,8 @@ export class InputHandler {
     let color = '#22d3ee'; // válido para tender cable
     if (this.engine.activeTool === 'accelerator') {
       color = existing && existing.type === 'road' && !existing.isBoosted ? '#f59e0b' : '#f43f5e';
-    } else if (this.engine.activeTool === 'balancer') {
-      color = existing && existing.type === 'node' && !existing.node.hasLoadBalancer && !existing.node.hasSwitch ? '#f59e0b' : '#f43f5e';
     } else if (this.engine.activeTool === 'switch') {
-      color = existing && existing.type === 'node' && !existing.node.hasSwitch && !existing.node.hasLoadBalancer ? '#06b6d4' : '#f43f5e';
+      color = existing && existing.type === 'node' && !existing.node.hasSwitch ? '#06b6d4' : '#f43f5e';
     } else if (this.engine.activeTool === 'reinforcement') {
       color = existing && existing.type === 'road' && !existing.isReinforced ? '#10b981' : '#f43f5e';
     } else if (this.engine.activeTool === 'limiter') {

@@ -7,7 +7,7 @@
 
 import {
   NODE_SHAPES, PACKET_PIXELS_PER_SECOND, PROTOCOL_ACCELERATOR_MULTIPLIER, TILE_VACATE_COOLDOWN,
-  DDOS_PACKET_STATIONARY_DROP_TIME
+  DDOS_PACKET_STATIONARY_DROP_TIME, PACKET_STUCK_REROUTE_SECONDS
 } from '../config/constants.js';
 
 let packetCounter = 1;
@@ -59,7 +59,10 @@ export class Packet {
     // Paquete de un ataque DDoS (ver TrafficGenerator.triggerTargetedDDoS): se identifica en
     // rojo, y si pasa más de DDOS_PACKET_STATIONARY_DROP_TIME sin avanzar de posición (cable
     // cortado, congestión, o esperando en la puerta de un nodo bloqueado), se descarta sin
-    // contar como paquete perdido. `stationaryTimer` acumula ese tiempo sin avance.
+    // contar como paquete perdido. Para un paquete normal, este mismo `stationaryTimer` se usa
+    // para detectar una línea saturada (ver update()): si lleva PACKET_STUCK_REROUTE_SECONDS
+    // sin moverse de un tramo de cable (no en la puerta de un nodo, eso es otro problema), se
+    // reencola para que el Router le busque otro camino.
     this.isDDoS = false;
     this.stationaryTimer = 0;
   }
@@ -127,6 +130,23 @@ export class Packet {
         this.releaseClaim(engine.roadGrid);
         this.inTransit = false;
         return { status: 'ddos_dropped', packet: this, position };
+      }
+    } else if (this.inTransit && !(this.toPoint && this.toPoint.node)) {
+      // Paquete normal atascado en un tramo de cable (no en la puerta de un nodo: esperar el
+      // cooldown de recepción es un problema de disponibilidad del destino, no de saturación
+      // de la línea, y reencolarlo ahí no cambiaría nada). Si hay otro camino disponible, el
+      // Router lo tomará solo al reintentar vía attemptRoutePacket (pondera por congestión, así
+      // que evita naturalmente el mismo tramo saturado); si no lo hay, simplemente queda
+      // esperando en el búfer del nodo como cualquier paquete sin ruta.
+      const moved = this.progress !== progressBefore || this.routeIndex !== routeIndexBefore;
+      this.stationaryTimer = moved ? 0 : this.stationaryTimer + dt;
+      if (this.stationaryTimer >= PACKET_STUCK_REROUTE_SECONDS) {
+        this.stationaryTimer = 0;
+        this.releaseClaim(engine.roadGrid);
+        this.inTransit = false;
+        const bufferNode = this.lastNodeVisited || this.originNode;
+        bufferNode.addPacket(this);
+        return { status: 'reroute', packet: this, node: bufferNode };
       }
     }
 

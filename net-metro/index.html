@@ -84,6 +84,7 @@
       <!-- Derecha: Controles de Tiempo y Audio -->
       <div class="hud-card controls-card">
         <span id="firewall-badge" class="status-badge hidden" title="Firewall Anti-DDoS activo: 50% de probabilidad de bloquear cada ataque (si falla, el ataque duplica su potencia)">🛡️</span>
+        <span id="balancer-badge" class="status-badge hidden" title="Balanceador de Carga activo: mientras dure un ataque DDoS, reduce a la mitad el bloqueo de recepción de los nodos afectados">⚖️</span>
         <button id="btn-speed-pause" class="btn-icon" title="Pausar (Espacio)">⏸</button>
         <button id="btn-speed-1x" class="btn-icon active" title="Velocidad normal (1)">▶</button>
         <button id="btn-speed-2x" class="btn-icon" title="Velocidad rápida (2)">▶▶</button>
@@ -131,17 +132,8 @@
             </div>
           </div>
 
-          <!-- Especial 2: Balanceador de Carga -->
-          <div id="tool-balancer" class="special-card disabled" title="Balanceador de Carga: Reduce a 0.5s el cooldown de recepción de un nodo. No se puede combinar con Switch. (Consíguelo en mejoras del Domingo)">
-            <span class="special-icon">⚖️</span>
-            <div class="special-meta">
-              <span class="special-name">Balanceador</span>
-              <span id="badge-count-balancer" class="special-qty">0 disp.</span>
-            </div>
-          </div>
-
-          <!-- Especial 3: Switch de Red Gigabit -->
-          <div id="tool-switch" class="special-card disabled" title="Switch de Red Gigabit: Instálalo en el nodo que elijas para que acepte hasta 5 entregas seguidas sin cooldown, además de ampliar su búfer. No se puede combinar con Balanceador. (Consíguelo en mejoras del Domingo)">
+          <!-- Especial 2: Switch de Red Gigabit -->
+          <div id="tool-switch" class="special-card disabled" title="Switch de Red Gigabit: Instálalo en el nodo que elijas para que acepte hasta 5 entregas seguidas sin cooldown y reduzca a 0.5s el cooldown normal, además de ampliar su búfer.">
             <span class="special-icon">🔀</span>
             <div class="special-meta">
               <span class="special-name">Switch</span>
@@ -149,8 +141,8 @@
             </div>
           </div>
 
-          <!-- Especial 4: Refuerzo de Cable -->
-          <div id="tool-reinforcement" class="special-card disabled" title="Refuerzo de Cable: Instálalo sobre un tramo de cable para reducir en 75% la probabilidad de que sea cortado por mantenimiento. (Consíguelo en mejoras del Domingo)">
+          <!-- Especial 3: Refuerzo de Cable -->
+          <div id="tool-reinforcement" class="special-card disabled" title="Refuerzo de Cable: Instálalo sobre un tramo de cable para reducir en 75% la probabilidad de que sea cortado por mantenimiento. (Consíguelo en mejoras del Domingo, 6 piezas por vez)">
             <span class="special-icon">🔩</span>
             <div class="special-meta">
               <span class="special-name">Refuerzo</span>
@@ -158,7 +150,7 @@
             </div>
           </div>
 
-          <!-- Especial 5: Limitador de Requests -->
+          <!-- Especial 4: Limitador de Requests -->
           <div id="tool-limiter" class="special-card disabled" title="Limitador de Requests: Instálalo en un nodo emisor para que genere muchos menos paquetes rojos si un ataque DDoS lo arrastra a originar tráfico malicioso. (Consíguelo en mejoras del Domingo)">
             <span class="special-icon">🚦</span>
             <div class="special-meta">
@@ -253,10 +245,14 @@
 
         <div class="gameover-actions">
           <button id="btn-retry" class="btn-primary">Reintentar Partida</button>
+          <button id="btn-view-board" class="btn-secondary">Ver Tablero</button>
           <button id="btn-go-menu" class="btn-secondary">Volver al Menú</button>
         </div>
       </div>
     </section>
+
+    <!-- Botón flotante para volver al resumen de Game Over tras pulsar "Ver Tablero" -->
+    <button id="btn-return-to-summary" class="hidden">↩ Volver al resumen</button>
 
     <!-- 4. MODAL DE CLASIFICACIÓN (LEADERBOARD SUPABASE) -->
     <section id="modal-leaderboard" class="modal-overlay hidden">
@@ -343,19 +339,19 @@
           <div class="instruction-card">
             <div class="inst-icon">🎁 ➔ ⚡</div>
             <h4>7. Mejoras Semanales y Especiales</h4>
-            <p>Además de las piezas automáticas, cada Domingo eliges 1 de 2 mejoras: <strong>Acelerador de Protocolo</strong> (acelera un tramo para siempre), <strong>Balanceadores</strong> (reducen a 0.5s el enfriamiento de recepción del nodo elegido), <strong>Firewall</strong> (icono 🛡️ arriba mientras esté activo; solo puedes tener uno), un <strong>Switch de Red</strong> (tú eliges en qué nodo instalarlo), un <strong>Refuerzo de Cable</strong> (te da 3 piezas para instalar sobre tramos y reducir en 75% su probabilidad de ser cortados) o un <strong>Limitador de Requests</strong> (instálalo en un nodo emisor para que genere muchos menos paquetes rojos si un DDoS lo arrastra a originar tráfico malicioso).</p>
+            <p>Además de las piezas automáticas, cada Domingo eliges 1 de 2 mejoras: <strong>Acelerador de Protocolo</strong> (acelera un tramo para siempre), <strong>Firewall</strong> (icono 🛡️ arriba mientras esté activo; solo puedes tener uno), un <strong>Switch de Red</strong> (instálalo en el nodo que elijas: acepta hasta 5 entregas seguidas sin cooldown y reduce a 0.5s su enfriamiento normal, además de ampliar su búfer), un <strong>Refuerzo de Cable</strong> (te da 6 piezas para instalar sobre tramos y reducir en 75% su probabilidad de ser cortados), un <strong>Limitador de Requests</strong> (instálalo en un nodo emisor para que genere muchos menos paquetes rojos si un DDoS lo arrastra a originar tráfico malicioso), o un <strong>Balanceador de Carga</strong> (icono ⚖️ arriba mientras esté activo; solo puedes tener uno; mientras dure un ataque DDoS, reduce a la mitad el bloqueo de recepción de los nodos golpeados por paquetes maliciosos).</p>
           </div>
 
           <div class="instruction-card">
             <div class="inst-icon">🚧</div>
             <h4>8. Eventos de Red</h4>
-            <p>Un <strong>ataque DDoS</strong> marca un nodo con un anillo rojo pulsante e inunda específicamente su forma con paquetes rojos por el mismo cableado. Un paquete DDoS <strong>no se puede entregar normalmente</strong>: si corta ese tramo (clic derecho) y el paquete queda más de 0.5s sin poder avanzar, se autodestruye solo y NO cuenta como paquete perdido; pero si logra llegar al nodo receptor, un sector semitransparente en <strong>sentido contrahorario</strong> alrededor del nodo muestra que quedó <strong>sin poder recibir nada durante 10 segundos</strong> (cada impacto adicional reinicia ese bloqueo). Nunca ocurre en la Semana 1, desde la Semana 4 es mucho más frecuente, y desde la Semana 7 tiene más potencia base. El <strong>Firewall</strong> (🛡️) tiene 50% de probabilidad de bloquearlo por completo; si falla, la potencia del ataque se duplica. Un DDoS y una Demanda Pico nunca ocurren al mismo tiempo. Un <strong>corte de cable</strong> bloquea temporalmente varios tramos a la vez por mantenimiento (más todavía desde la Semana 5); el tráfico de cada uno se retoma solo apenas se repara. La <strong>Demanda Pico</strong> genera una ráfaga extra de tráfico desde todos los nodos emisores, garantizada al menos 1 vez por semana desde la Semana 5. Desde esa misma semana, además, el tráfico normal se vuelve más rápido y errático (los nodos dejan de sentirse sincronizados entre sí).</p>
+            <p>Un <strong>ataque DDoS</strong> marca un nodo con un anillo rojo pulsante e inunda específicamente su forma con paquetes rojos por el mismo cableado. Un paquete DDoS <strong>no se puede entregar normalmente</strong>: si corta ese tramo (clic derecho) y el paquete queda más de 0.5s sin poder avanzar, se autodestruye solo y NO cuenta como paquete perdido; pero si logra llegar al nodo receptor, un sector semitransparente en <strong>sentido contrahorario</strong> alrededor del nodo muestra que quedó <strong>sin poder recibir nada durante 10 segundos</strong> (5 con el Balanceador de Carga activo; cada impacto adicional reinicia ese bloqueo). Nunca ocurre en la Semana 1, desde la Semana 4 es mucho más frecuente, y desde la Semana 7 tiene más potencia base. El <strong>Firewall</strong> (🛡️) tiene 50% de probabilidad de bloquearlo por completo; si falla, la potencia del ataque se duplica. Un DDoS y una Demanda Pico nunca ocurren al mismo tiempo. Un <strong>corte de cable</strong> bloquea temporalmente varios tramos a la vez por mantenimiento (más todavía desde la Semana 5); el tráfico de cada uno se retoma solo apenas se repara. La <strong>Demanda Pico</strong> genera una ráfaga extra de tráfico desde todos los nodos emisores, garantizada al menos 1 vez por semana desde la Semana 5. Desde esa misma semana, además, el tráfico normal se vuelve más rápido y errático (los nodos dejan de sentirse sincronizados entre sí).</p>
           </div>
 
           <div class="instruction-card">
             <div class="inst-icon">🟣 ➔ 🔀</div>
             <h4>9. Congestión y Enrutamiento</h4>
-            <p>Cada paquete que pasa "carga" un poco el tramo que usó. Un tramo muy transitado se tiñe de <strong>violeta</strong>, y el enrutador automáticamente preferirá caminos alternativos menos cargados si existen. Construir rutas redundantes reparte el tráfico y evita cuellos de botella.</p>
+            <p>Cada paquete que pasa "carga" un poco el tramo que usó. Un tramo muy transitado se tiñe de <strong>violeta</strong>, y el enrutador automáticamente preferirá caminos alternativos menos cargados si existen. Construir rutas redundantes reparte el tráfico y evita cuellos de botella. Si un paquete normal queda <strong>atascado 3 segundos</strong> en un mismo tramo (línea saturada), se reencola solo y busca otro camino si hay uno disponible.</p>
           </div>
 
           <div class="instruction-card">

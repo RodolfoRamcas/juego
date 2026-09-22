@@ -8,9 +8,6 @@ import { UPGRADE_TYPES, CABLE_REINFORCEMENT_GRANT_AMOUNT } from '../config/const
 export class UpgradeSystem {
   constructor(engine) {
     this.engine = engine;
-    this.inventory = {
-      loadBalancers: 0
-    };
   }
 
   reset() {
@@ -28,9 +25,10 @@ export class UpgradeSystem {
     container.innerHTML = '';
 
     // Seleccionar 2 mejoras distintas aleatorias (aparte de las piezas, que ya se otorgaron).
-    // El Firewall solo puede tenerse de a uno, así que no se ofrece de nuevo si ya está activo.
+    // El Firewall y el Balanceador de Carga son de un solo uso: no se ofrecen de nuevo una vez
+    // activos.
     const pool = [
-      UPGRADE_TYPES.LOAD_BALANCER,
+      ...(this.engine.hasLoadBalancer ? [] : [UPGRADE_TYPES.LOAD_BALANCER]),
       UPGRADE_TYPES.PROTOCOL_ACCELERATOR,
       ...(this.engine.hasFirewall ? [] : [UPGRADE_TYPES.FIREWALL]),
       UPGRADE_TYPES.NETWORK_SWITCH,
@@ -73,8 +71,8 @@ export class UpgradeSystem {
   applyUpgrade(upgrade) {
     switch (upgrade.id) {
       case 'load_balancer':
-        this.engine.loadBalancers++;
-        this.engine.updateRoadUI();
+        this.engine.hasLoadBalancer = true;
+        this.engine.updateBalancerBadge();
         break;
 
       case 'protocol_accelerator':

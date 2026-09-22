@@ -81,12 +81,26 @@ window.addEventListener('DOMContentLoaded', () => {
   // ==================== ACCIONES DE FIN DE PARTIDA ====================
   document.getElementById('btn-retry').addEventListener('click', () => {
     modalGameOver.classList.add('hidden');
+    document.getElementById('btn-return-to-summary').classList.add('hidden');
     document.getElementById('btn-submit-score').disabled = false;
     document.getElementById('submit-status').textContent = '';
     engine.startGame();
   });
 
+  document.getElementById('btn-view-board').addEventListener('click', () => {
+    // Solo oculta el modal para dejar ver la red tal como quedó en el momento de la derrota
+    // (el juego ya está en estado GAMEOVER, así que nada sigue simulándose de fondo).
+    modalGameOver.classList.add('hidden');
+    document.getElementById('btn-return-to-summary').classList.remove('hidden');
+  });
+
+  document.getElementById('btn-return-to-summary').addEventListener('click', () => {
+    modalGameOver.classList.remove('hidden');
+    document.getElementById('btn-return-to-summary').classList.add('hidden');
+  });
+
   document.getElementById('btn-go-menu').addEventListener('click', () => {
+    document.getElementById('btn-return-to-summary').classList.add('hidden');
     modalGameOver.classList.add('hidden');
     document.getElementById('btn-submit-score').disabled = false;
     document.getElementById('submit-status').textContent = '';
@@ -181,16 +195,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const toolBalancerEl = document.getElementById('tool-balancer');
-  if (toolBalancerEl) {
-    toolBalancerEl.addEventListener('click', () => {
-      if (engine.loadBalancers > 0) {
-        engine.activeTool = engine.activeTool === 'balancer' ? 'road' : 'balancer';
-        engine.updateRoadUI();
-      }
-    });
-  }
-
   const toolSwitchEl = document.getElementById('tool-switch');
   if (toolSwitchEl) {
     toolSwitchEl.addEventListener('click', () => {
@@ -268,9 +272,16 @@ window.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
 
     if (!scores || scores.length === 0) {
-      tbody.innerHTML = source === 'cloud'
-        ? '<tr><td colspan="6" style="text-align:center; padding: 20px;">Aún no hay puntuaciones registradas. ¡Sé el primero!</td></tr>'
-        : '<tr><td colspan="6" style="text-align:center; padding: 20px;">⚠️ Sin conexión a la base de datos: el ranking global no está disponible ahora.</td></tr>';
+      // Distingue "no hay cliente de Supabase creado" (config ausente/vacía) de "hay cliente
+      // pero la consulta falló" (RLS, tabla inexistente, clave inválida, etc.): son causas muy
+      // distintas y conviene poder diferenciarlas al depurar.
+      if (source === 'cloud') {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;">Aún no hay puntuaciones registradas. ¡Sé el primero!</td></tr>';
+      } else if (source === 'error') {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;">⚠️ Hay conexión, pero la consulta a la base de datos falló (revisa la consola).</td></tr>';
+      } else {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;">⚠️ Sin conexión a la base de datos: el ranking global no está disponible ahora.</td></tr>';
+      }
       return;
     }
 

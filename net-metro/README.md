@@ -31,14 +31,14 @@ En el juego, el usuario asume el rol de un **Ingeniero de Infraestructura de Tel
 | **Tender Cable** | Mantén presionado el clic izquierdo y **arrastra** sobre la grilla del mapa. |
 | **Retirar Tramo de Cable** | Clic derecho sobre un tramo de cable (reembolsa 1 pieza). |
 | **Aplicar Acelerador de Protocolo (⚡)** | Clic en el icono ⚡ de la bandeja inferior y luego clic en un tramo de cable existente. |
-| **Instalar Balanceador (⚖️)** | Clic en el icono ⚖️ de la bandeja inferior y luego clic en el nodo deseado. |
 | **Instalar Switch de Red (🔀)** | Clic en el icono 🔀 de la bandeja inferior y luego clic en el nodo donde instalarlo. |
+| **Reiniciar Partida** | Mantén presionada la tecla `R` (~1.2s) para reiniciar con un layout de figuras nuevo. |
 | **Pausar / Reanudar** | Tecla `Espacio` o botón `⏸` / `▶` en la barra superior. |
 | **Acelerar Tiempo** | Tecla `1` (Normal 1x) o Tecla `2` (Rápido 2.2x). |
 
 ### Gestión del Presupuesto de Cable
 - **Piezas de Cable:** Cada tramo tendido en la grilla consume 1 pieza del presupuesto (equivalente a un costo por píxel, ya que cada tramo mide un tamaño fijo). No hay un límite máximo de piezas: cada Domingo a medianoche se otorga un lote adicional automáticamente.
-- **Hardware Especial:** Inicias con **0** Aceleradores de Protocolo, Balanceadores de Carga y Switches de Red. Solo puedes colocarlos cuando los consigas en las recompensas de fin de semana — el Switch, igual que el Balanceador, lo instalas tú mismo en el nodo que elijas (nunca se coloca automáticamente).
+- **Hardware Especial:** Inicias con **0** Aceleradores de Protocolo y Switches de Red. Solo puedes colocarlos cuando los consigas en las recompensas de fin de semana; el Switch lo instalas tú mismo en el nodo que elijas (nunca se coloca automáticamente). El **Balanceador de Carga** y el **Firewall** son distintos: son objetos pasivos de un solo uso (no se colocan en un nodo, se activan solos) y no se ofrecen de nuevo una vez que ya los tienes.
 - **Retirar un tramo acelerado** devuelve tanto la pieza de cable como el Acelerador de Protocolo a tu bandeja, para que puedas reubicarlo. Un paquete que cruza un tramo acelerado conserva esa velocidad extra por el resto de su viaje.
 
 ### Tráfico por Pares de Forma

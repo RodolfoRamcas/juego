@@ -180,3 +180,33 @@ html, body {
   font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.6);
 }
+
+/* BOTÓN FLOTANTE "Volver al resumen": aparece tras pulsar "Ver Tablero" en Game Over, mientras
+   el modal está oculto para dejar ver la red en el momento exacto de la derrota. */
+#btn-return-to-summary.hidden {
+  display: none;
+}
+
+#btn-return-to-summary {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  padding: 10px 22px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+#btn-return-to-summary:hover {
+  background: rgba(15, 23, 42, 0.92);
+  border-color: rgba(255, 255, 255, 0.35);
+}

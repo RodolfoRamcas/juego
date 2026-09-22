@@ -29,8 +29,7 @@ export class Node {
     this.role = role;
 
     // Capacidad de cola y búfer
-    this.hasLoadBalancer = false;
-    this.hasSwitch = false; // Switch de Red Gigabit instalado
+    this.hasSwitch = false; // Switch de Red Gigabit instalado (también reduce el cooldown normal)
     // Limitador de Requests: si este nodo (emisor) se ve arrastrado a generar tráfico de un
     // ataque DDoS por ser emisor de la forma atacada, produce muchos menos paquetes rojos (ver
     // TrafficGenerator.pickDDoSOriginSender).
@@ -56,16 +55,16 @@ export class Node {
 
     // Segundos restantes de bloqueo de recepción causado por un impacto DDoS (ver
     // Engine.onDDoSPacketHit): controla el anillo semitransparente en sentido contrahorario
-    // que distingue este bloqueo del enfriamiento normal de recepción.
+    // que distingue este bloqueo del enfriamiento normal de recepción. ddosLockoutMaxDuration
+    // guarda la duración total que tuvo ESE bloqueo en particular (10s normal, o la mitad con
+    // el Balanceador de Carga activo), para que el anillo arranque siempre en un círculo
+    // completo sin importar cuál de las dos duraciones se haya aplicado.
     this.ddosLockoutTimer = 0;
+    this.ddosLockoutMaxDuration = 0;
 
     // Animación de aparición
     this.spawnProgress = 0; // de 0 a 1
     this.pulseAnim = 0;
-  }
-
-  installLoadBalancer() {
-    this.hasLoadBalancer = true;
   }
 
   installSwitch() {
@@ -164,7 +163,7 @@ export class Node {
     // círculo completo hasta desaparecer, y gira en sentido opuesto al sector de saturación
     // (que es horario) para distinguir claramente un bloqueo del otro.
     if (this.ddosLockoutTimer > 0) {
-      const lockRatio = Math.min(1, this.ddosLockoutTimer / DDOS_RECEIVER_LOCKOUT_SECONDS);
+      const lockRatio = Math.min(1, this.ddosLockoutTimer / (this.ddosLockoutMaxDuration || DDOS_RECEIVER_LOCKOUT_SECONDS));
       const outerR = this.radius + 10;
       const startAngle = -Math.PI / 2;
       const endAngle = startAngle - lockRatio * (Math.PI * 2);
@@ -250,8 +249,6 @@ export class Node {
       ctx.strokeStyle = '#f43f5e';
     } else if (this.hasSwitch) {
       ctx.strokeStyle = '#06b6d4'; // Cyan brillante para Switch
-    } else if (this.hasLoadBalancer) {
-      ctx.strokeStyle = '#f59e0b'; // Dorado para nodo con balanceador
     } else if (this.hasRequestLimiter) {
       ctx.strokeStyle = '#22c55e'; // Verde para Limitador de Requests
     }
@@ -259,19 +256,13 @@ export class Node {
     // 3. Dibujo de la forma geométrica característica
     this.drawShape(ctx, this.shape, this.radius);
 
-    // 4. Indicadores de mejoras instaladas (Balanceador, Switch o Limitador de Requests)
+    // 4. Indicadores de mejoras instaladas (Switch o Limitador de Requests)
     if (this.hasSwitch) {
       ctx.fillStyle = '#06b6d4';
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('🔀', 0, -this.radius - 9);
-    } else if (this.hasLoadBalancer) {
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = '11px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('⚖️', 0, -this.radius - 8);
     } else if (this.hasRequestLimiter) {
       ctx.fillStyle = '#22c55e';
       ctx.font = '11px sans-serif';
