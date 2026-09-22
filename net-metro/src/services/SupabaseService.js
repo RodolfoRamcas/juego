@@ -3,8 +3,6 @@
  * Soporta conexión en tiempo real con Supabase y modo offline con LocalStorage.
  */
 
-import { SUPABASE_CONFIG } from '../config/supabaseConfig.js';
-
 class SupabaseService {
   constructor() {
     this.client = null;
@@ -16,11 +14,22 @@ class SupabaseService {
     this.init();
   }
 
-  init() {
-    // 1. Verificar si hay credenciales directas en src/config/supabaseConfig.js
-    if (SUPABASE_CONFIG && SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey && window.supabase) {
+  async init() {
+    // 1. Verificar si hay credenciales directas en src/config/supabaseConfig.js. Se carga con
+    // import() DINÁMICO (no import estático) a propósito: ese archivo se genera en el build
+    // (Vercel / GitHub Actions) o se copia a mano en local, así que puede no existir todavía.
+    // Un import estático fallido rompe TODO el módulo (y a quien lo importe, o sea el juego
+    // entero); uno dinámico solo rechaza esta promesa puntual, que sí podemos atrapar.
+    let supabaseConfig = null;
+    try {
+      ({ SUPABASE_CONFIG: supabaseConfig } = await import('../config/supabaseConfig.js'));
+    } catch (e) {
+      console.warn('supabaseConfig.js no disponible: el juego sigue funcionando con el Leaderboard local.', e);
+    }
+
+    if (supabaseConfig && supabaseConfig.url && supabaseConfig.anonKey && window.supabase) {
       try {
-        this.client = window.supabase.createClient(SUPABASE_CONFIG.url.trim(), SUPABASE_CONFIG.anonKey.trim());
+        this.client = window.supabase.createClient(supabaseConfig.url.trim(), supabaseConfig.anonKey.trim());
         this.isOnline = true;
         return;
       } catch (e) {

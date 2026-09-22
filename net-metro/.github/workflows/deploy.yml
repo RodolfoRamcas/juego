@@ -24,22 +24,16 @@ jobs:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Generar supabaseConfig.js desde los Secrets del repositorio
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: |
-          cat > src/config/supabaseConfig.js <<EOF
-          /**
-           * Generado automáticamente por .github/workflows/deploy.yml a partir de los
-           * Secrets del repositorio. NO editar a mano ni commitear: este archivo solo existe
-           * en el artefacto de despliegue, nunca en el historial de git.
-           */
-          export const SUPABASE_CONFIG = {
-            url: '${SUPABASE_URL}',
-            anonKey: '${SUPABASE_ANON_KEY}'
-          };
-          EOF
+        run: npm run build
 
       - name: Preparar Pages
         uses: actions/configure-pages@v5

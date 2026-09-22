@@ -8,3 +8,7 @@ src/config/supabaseConfig.js
 # Archivos del sistema operativo / editor
 .DS_Store
 Thumbs.db
+
+# Node / Vercel (no hay dependencias, pero por si alguna vez se agregan)
+node_modules/
+.vercel/

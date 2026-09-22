@@ -5,7 +5,6 @@
 import { Engine } from './core/Engine.js';
 import { GAME_SPEEDS } from './config/constants.js';
 import { supabaseService } from './services/SupabaseService.js';
-import { SUPABASE_CONFIG } from './config/supabaseConfig.js';
 
 window.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('gameCanvas');

@@ -193,3 +193,14 @@ Las claves de Supabase **no** se suben al repositorio: viven como *Secrets* de G
 3. Ve a **Settings -> Pages** y en **Build and deployment -> Source** selecciona **GitHub Actions** (en vez de "Deploy from a branch").
 4. Cada `git push` a `main` dispara el workflow, que genera `src/config/supabaseConfig.js` con esos Secrets solo para el artefacto publicado (nunca queda guardado en el repositorio) y despliega el sitio. Puedes seguirlo en la pestaña **Actions**.
 5. Tu juego quedará publicado en la URL que GitHub Pages indique (visible también en **Settings -> Pages** una vez termine el primer despliegue).
+
+### Despliegue en Vercel (alternativa, con las claves como Environment Variables)
+Vercel no usa Secrets de GitHub sino sus propias **Environment Variables** por proyecto. El repositorio ya trae todo lo necesario: `package.json` (con el script `build`), `vercel.json` (le dice a Vercel que no hay framework y cuál es el comando de build) y `scripts/generate-supabase-config.mjs` (genera `src/config/supabaseConfig.js` en cada build, igual que en GitHub Actions).
+
+1. Sube el proyecto a un repositorio de GitHub (ver pasos 1 del despliegue anterior; no hace falta repetirlo si ya lo hiciste).
+2. En [vercel.com](https://vercel.com), **Add New... -> Project** e importa ese repositorio.
+3. En la pantalla de configuración del proyecto (o después en **Settings -> Environment Variables**), agrega:
+   - `SUPABASE_URL`: la Project URL de tu proyecto de Supabase.
+   - `SUPABASE_ANON_KEY`: tu clave **anon / publishable** (nunca la secret) — márcala para los 3 entornos (Production, Preview, Development) si quieres que funcione también en los previews de cada PR.
+4. Framework Preset: Vercel debería detectar **"Other"** automáticamente gracias a `vercel.json`; si te pregunta, dejar Build Command en `npm run build` y Output Directory en `.` (raíz).
+5. Pulsa **Deploy**. Cada push posterior a la rama conectada (normalmente `main`) genera un nuevo deploy automático, y cada Pull Request obtiene su propia URL de preview.
