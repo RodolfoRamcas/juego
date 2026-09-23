@@ -304,6 +304,27 @@ export class Packet {
         ctx.lineTo(-r, r);
         ctx.closePath();
         break;
+      case NODE_SHAPES.HEXAGON:
+        for (let i = 0; i < 6; i++) {
+          const angle = (i * Math.PI) / 3;
+          const px = r * Math.cos(angle);
+          const py = r * Math.sin(angle);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      case NODE_SHAPES.STAR:
+        for (let i = 0; i < 10; i++) {
+          const rad = (i * Math.PI) / 5;
+          const len = i % 2 === 0 ? r * 1.3 : r * 0.6;
+          const px = len * Math.sin(rad);
+          const py = -len * Math.cos(rad);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
       default:
         ctx.arc(0, 0, r, 0, Math.PI * 2);
         break;

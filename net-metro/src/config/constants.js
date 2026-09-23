@@ -153,6 +153,18 @@ export const TILE_MAX_OCCUPANTS = 2;
 // del destino, no de la ruta) y no dispara este reencolado (ver Packet.update).
 export const PACKET_STUCK_REROUTE_SECONDS = 3.0;
 
+// Si un nodo RECEPTOR no tiene NINGÚN tramo de cable tocándolo (ni uno solo, en cualquiera de
+// sus 4 lados) durante esta cantidad de segundos, se considera abandonado y termina la
+// partida — el mismo tipo de consecuencia que un Buffer Overflow, pero por el problema
+// opuesto: un nodo al que nunca le construyeron ni un solo cable. Antes esto no generaba
+// ninguna penalización directa (los paquetes dirigidos a él solo expiraban del lado del
+// emisor, sin señalar cuál era el verdadero problema). Los nodos EMISORES no se rastrean con
+// este temporizador: su desconexión ya se penaliza indirectamente, porque nunca logran
+// despachar nada y sus paquetes expiran por tiempo límite (ver Node.update / Engine). 30s da
+// tiempo real de reacción incluso al arrancar la partida, cuando los 3 pares iniciales corren
+// este conteo a la vez desde el segundo 0 y el jugador recién está orientándose en el mapa.
+export const NODE_DISCONNECTED_TIMEOUT_SECONDS = 30;
+
 // Estado global de "qué evento está corriendo ahora mismo" (ver EventSystem.activeEventType):
 // 0 significa que no hay ninguno, y cada tipo de evento tiene su propio valor distinto y fijo.
 // Sirve para dos cosas: (1) garantizar que solo pueda haber UN evento activo a la vez (DDoS,
@@ -208,13 +220,14 @@ export const DDOS_BASE_POWER_FROM_WEEK7 = 1.5;
 // creciendo, así que se mantiene el ritmo original.
 export const HARD_MODE_FROM_WEEK = 5;
 
-// Cantidad de tramos de cable que corta simultáneamente el evento de Corte de Fibra: el valor
-// base aplica hasta HARD_MODE_FROM_WEEK, y desde ahí sube a FIBER_CUT_HEAVY_TILE_COUNT. Los
-// tramos quedan inhabilitados por FIBER_CUT_DURATION_SECONDS, que es también cuánto dura el
-// evento para efectos del contador global (EVENT_TYPE_FIBER_CUT).
+// Cantidad de tramos de cable que corta simultáneamente el evento de Corte de Fibra, y cuánto
+// tiempo quedan inhabilitados (también cuánto dura el evento para el contador global
+// EVENT_TYPE_FIBER_CUT): los valores base aplican hasta HARD_MODE_FROM_WEEK, y desde ahí suben
+// a las versiones HEAVY (más tramos, y cada uno tarda más en repararse).
 export const FIBER_CUT_TILE_COUNT = 6;
 export const FIBER_CUT_HEAVY_TILE_COUNT = 10;
 export const FIBER_CUT_DURATION_SECONDS = 9;
+export const FIBER_CUT_HEAVY_DURATION_SECONDS = 14;
 
 // A partir de esta semana, la Demanda Pico se garantiza un mínimo de FLASH_CROWD_MIN_PER_WEEK
 // veces por semana y dispara tráfico desde TODOS los nodos emisores en cada ráfaga. Antes de

@@ -9,6 +9,7 @@ import {
   DEFAULT_NODE_BUFFER_CAPACITY,
   SWITCH_BURST_CAPACITY,
   DDOS_RECEIVER_LOCKOUT_SECONDS,
+  NODE_DISCONNECTED_TIMEOUT_SECONDS,
   TIME_CONFIG
 } from '../config/constants.js';
 
@@ -62,6 +63,11 @@ export class Node {
     this.ddosLockoutTimer = 0;
     this.ddosLockoutMaxDuration = 0;
 
+    // Segundos acumulados sin ningún tramo de cable tocando este nodo (solo se rastrea en
+    // nodos RECEPTORES, ver update()): si llega a NODE_DISCONNECTED_TIMEOUT_SECONDS, termina
+    // la partida. Controla el anillo ámbar en sentido horario que avisa mientras crece.
+    this.disconnectedTime = 0;
+
     // Animación de aparición
     this.spawnProgress = 0; // de 0 a 1
     this.pulseAnim = 0;
@@ -92,7 +98,10 @@ export class Node {
     return null;
   }
 
-  update(dt) {
+  // `isConnected`: si este nodo tiene al menos un tramo de cable tocándolo (lo calcula Engine
+  // vía RoadGrid.hasAdjacentRoad, ya que Node no conoce la grilla). Por defecto true, para que
+  // nada que llame a update() sin pasarlo se rompa ni penalice de más.
+  update(dt, isConnected = true) {
     // Animación inicial de spawn
     if (this.spawnProgress < 1) {
       this.spawnProgress = Math.min(1, this.spawnProgress + dt * 3);
@@ -108,6 +117,21 @@ export class Node {
     }
     if (this.ddosLockoutTimer > 0) {
       this.ddosLockoutTimer = Math.max(0, this.ddosLockoutTimer - dt);
+    }
+
+    // Nodo receptor sin ningún cable conectado: si se abandona demasiado tiempo, termina la
+    // partida (mismo tipo de consecuencia que un Buffer Overflow, por el problema opuesto). Los
+    // emisores no se rastrean aquí: su desconexión ya se penaliza indirectamente, porque nunca
+    // logran despachar nada y sus paquetes expiran solos por tiempo límite.
+    if (this.role === 'receiver') {
+      if (!isConnected) {
+        this.disconnectedTime += dt;
+        if (this.disconnectedTime >= NODE_DISCONNECTED_TIMEOUT_SECONDS) {
+          return { isOverflowed: false, isDisconnected: true, causeNode: this };
+        }
+      } else {
+        this.disconnectedTime = Math.max(0, this.disconnectedTime - dt * 1.5);
+      }
     }
 
     // Lógica de alerta por congestión
@@ -181,6 +205,41 @@ export class Node {
       ctx.strokeStyle = '#f43f5e';
       ctx.shadowColor = 'rgba(244, 63, 94, 0.85)';
       ctx.shadowBlur = 9;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    // 0.d Sector ámbar en sentido horario: nodo RECEPTOR sin ningún cable conectado. Crece
+    // igual que el de Buffer Overflow (mismo radio, mismo sentido) pero en ámbar para no
+    // confundirlo con la saturación; en la práctica nunca coinciden (un receptor desconectado
+    // no puede recibir nada, así que su búfer no se llena).
+    if (this.disconnectedTime > 0) {
+      const discRatio = Math.min(1, this.disconnectedTime / NODE_DISCONNECTED_TIMEOUT_SECONDS);
+      const outerR = this.radius + 18;
+      const startAngle = -Math.PI / 2;
+      const endAngle = startAngle + discRatio * (Math.PI * 2);
+
+      ctx.beginPath();
+      ctx.arc(0, 0, outerR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, outerR, startAngle, endAngle, false);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.4)';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, outerR, startAngle, endAngle, false);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#f59e0b';
+      ctx.shadowColor = 'rgba(245, 158, 11, 0.9)';
+      ctx.shadowBlur = 10;
       ctx.stroke();
       ctx.shadowBlur = 0;
     }
@@ -368,6 +427,27 @@ export class Node {
         ctx.moveTo(0, -r);
         ctx.lineTo(r, r);
         ctx.lineTo(-r, r);
+        ctx.closePath();
+        break;
+      case NODE_SHAPES.HEXAGON:
+        for (let i = 0; i < 6; i++) {
+          const angle = (i * Math.PI) / 3;
+          const px = r * Math.cos(angle);
+          const py = r * Math.sin(angle);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      case NODE_SHAPES.STAR:
+        for (let i = 0; i < 10; i++) {
+          const rad = (i * Math.PI) / 5;
+          const len = i % 2 === 0 ? r * 1.3 : r * 0.6;
+          const px = len * Math.sin(rad);
+          const py = -len * Math.cos(rad);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
         ctx.closePath();
         break;
       default:

@@ -506,20 +506,26 @@ export class Engine {
       // 1. Reloj de juego y progresión de días
       this.updateClock(dt);
 
-      // 2. Actualizar nodos y verificar posible saturación crítica
+      // 2. Actualizar nodos y verificar posible saturación crítica o abandono sin conexión
       let anySaturating = false;
       for (const node of this.nodes) {
-        const result = node.update(dt);
+        const isConnected = node.role !== 'receiver' || this.roadGrid.hasAdjacentRoad(node.col, node.row);
+        const result = node.update(dt, isConnected);
         if (result.isOverflowed) {
           this.triggerGameOver(`Colapso de red en ${node.label} (${node.shape.toUpperCase()}) por Buffer Overflow.`);
           return;
         }
-        if (node.overflowTime > 0) {
+        if (result.isDisconnected) {
+          this.triggerGameOver(`Colapso de red: ${node.label} (${node.shape.toUpperCase()}) quedó sin ningún cable conectado durante demasiado tiempo.`);
+          return;
+        }
+        if (node.overflowTime > 0 || node.disconnectedTime > 0) {
           anySaturating = true;
         }
       }
 
-      // Alerta sonora periódica mientras un nodo se esté saturando (para alertar al jugador)
+      // Alerta sonora periódica mientras un nodo se esté saturando o desconectado (para
+      // alertar al jugador)
       if (anySaturating) {
         this.alarmTimer = (this.alarmTimer || 0) + dt;
         if (this.alarmTimer >= 1.5) {

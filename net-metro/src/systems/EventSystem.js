@@ -6,7 +6,7 @@
 import {
   DDOS_WEIGHT_FROM_WEEK4, DDOS_FIREWALL_BLOCK_CHANCE, FIREWALL_FAIL_POWER_MULTIPLIER,
   DDOS_BASE_POWER_FROM_WEEK7, FIBER_CUT_TILE_COUNT, FIBER_CUT_HEAVY_TILE_COUNT,
-  FIBER_CUT_DURATION_SECONDS, HARD_MODE_FROM_WEEK, FLASH_CROWD_HEAVY_FROM_WEEK,
+  FIBER_CUT_DURATION_SECONDS, FIBER_CUT_HEAVY_DURATION_SECONDS, HARD_MODE_FROM_WEEK, FLASH_CROWD_HEAVY_FROM_WEEK,
   FLASH_CROWD_MIN_PER_WEEK, FLASH_CROWD_BURST_INTERVAL_MS, FLASH_CROWD_DURATION_SECONDS,
   FLASH_CROWD_HEAVY_SENDER_FRACTION,
   FLASH_CROWD_LIGHT_INTERVAL_MS, FLASH_CROWD_LIGHT_DURATION_SECONDS, TIME_CONFIG,
@@ -200,12 +200,14 @@ export class EventSystem {
   triggerFiberCut() {
     if (this.activeEventType !== EVENT_TYPE_NONE) return;
 
-    const tileCount = this.engine.currentWeek >= HARD_MODE_FROM_WEEK ? FIBER_CUT_HEAVY_TILE_COUNT : FIBER_CUT_TILE_COUNT;
-    const blocked = this.engine.roadGrid.blockRandomRoadTiles(tileCount, FIBER_CUT_DURATION_SECONDS);
+    const isHardMode = this.engine.currentWeek >= HARD_MODE_FROM_WEEK;
+    const tileCount = isHardMode ? FIBER_CUT_HEAVY_TILE_COUNT : FIBER_CUT_TILE_COUNT;
+    const duration = isHardMode ? FIBER_CUT_HEAVY_DURATION_SECONDS : FIBER_CUT_DURATION_SECONDS;
+    const blocked = this.engine.roadGrid.blockRandomRoadTiles(tileCount, duration);
     if (blocked.length === 0) return;
 
     this.activeEventType = EVENT_TYPE_FIBER_CUT;
-    this.activeEventTimer = FIBER_CUT_DURATION_SECONDS;
+    this.activeEventTimer = duration;
 
     this.engine.soundManager.playWarningAlarm();
   }
