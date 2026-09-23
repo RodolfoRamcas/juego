@@ -24,7 +24,7 @@ export const GRID_CELL_SIZE = 44;
 // Tamaño de la grilla del mapa, en celdas. Es FIJO: no depende del tamaño de pantalla ni
 // ventana del jugador, y no cambia entre partidas (ver Engine.resizeCanvas/startGame).
 export const GRID_COLS_FIXED = 34;
-export const GRID_ROWS_FIXED = 26;
+export const GRID_ROWS_FIXED = 16;
 
 // Velocidad de desplazamiento de cámara con teclado (WASD / flechas), en píxeles/segundo
 export const CAMERA_PAN_SPEED = 900;
