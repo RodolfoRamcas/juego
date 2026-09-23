@@ -21,10 +21,10 @@ export const NODE_LABELS = {
 // Tamaño de cada celda de la cuadrícula de cableado, en píxeles
 export const GRID_CELL_SIZE = 44;
 
-// El mundo de la grilla es apenas más grande que la pantalla visible (viewport x este
-// multiplicador en cada eje): deja un margen reducido pero real para desplazar la cámara,
-// sin que el mapa se sienta mucho más grande que la pantalla.
-export const WORLD_SIZE_MULTIPLIER = 1.12;
+// Tamaño de la grilla del mapa, en celdas. Es FIJO: no depende del tamaño de pantalla ni
+// ventana del jugador, y no cambia entre partidas (ver Engine.resizeCanvas/startGame).
+export const GRID_COLS_FIXED = 34;
+export const GRID_ROWS_FIXED = 26;
 
 // Velocidad de desplazamiento de cámara con teclado (WASD / flechas), en píxeles/segundo
 export const CAMERA_PAN_SPEED = 900;
@@ -68,7 +68,7 @@ export const UPGRADE_TYPES = {
     id: 'load_balancer',
     name: 'Balanceador de Carga',
     icon: '⚖️',
-    desc: 'Se activa solo: mientras dure un ataque DDoS, reduce a la mitad el bloqueo de recepción de los nodos que sean golpeados por paquetes maliciosos. Solo puedes tener uno a la vez.',
+    desc: 'Se activa solo: mientras dure un ataque DDoS, reduce a la mitad el bloqueo de recepción de los nodos golpeados por paquetes maliciosos. Puede defender hasta 3 ataques; al agotarse se pierde (puede volver a salir en las recompensas).',
     isDraggable: false
   },
   PROTOCOL_ACCELERATOR: {
@@ -82,7 +82,7 @@ export const UPGRADE_TYPES = {
     id: 'firewall',
     name: 'Firewall / Anti-DDoS',
     icon: '🛡️',
-    desc: 'Ante un ataque DDoS, tiene 50% de probabilidad de bloquearlo por completo. Si falla, el ataque duplica su potencia. Solo puedes tener uno a la vez.',
+    desc: 'Ante un ataque DDoS, tiene 60% de probabilidad de bloquearlo por completo (si falla, el ataque duplica su potencia). Puede defender hasta 2 ataques; al agotarse se pierde (puede volver a salir en las recompensas).',
     isDraggable: false
   },
   NETWORK_SWITCH: {
@@ -103,7 +103,7 @@ export const UPGRADE_TYPES = {
     id: 'request_limiter',
     name: 'Limitador de Requests',
     icon: '🚦',
-    desc: 'Instálalo en un nodo emisor: si un ataque DDoS lo arrastra a generar tráfico malicioso (por ser emisor de la forma atacada), producirá muchos menos paquetes rojos.',
+    desc: 'Instálalo en un nodo emisor: si un ataque DDoS lo arrastra a generar tráfico malicioso (por ser emisor de la forma atacada), reduce en 75% la cantidad de paquetes rojos que ese nodo genera.',
     isDraggable: true
   }
 };
@@ -153,6 +153,17 @@ export const TILE_MAX_OCCUPANTS = 2;
 // del destino, no de la ruta) y no dispara este reencolado (ver Packet.update).
 export const PACKET_STUCK_REROUTE_SECONDS = 3.0;
 
+// Estado global de "qué evento está corriendo ahora mismo" (ver EventSystem.activeEventType):
+// 0 significa que no hay ninguno, y cada tipo de evento tiene su propio valor distinto y fijo.
+// Sirve para dos cosas: (1) garantizar que solo pueda haber UN evento activo a la vez (DDoS,
+// Corte de Fibra y Demanda Pico se excluyen mutuamente, ya no solo DDoS vs. Demanda Pico), y
+// (2) que otros sistemas (Firewall, Balanceador de Carga) puedan verificar explícitamente,
+// contra este contador, que hay un ataque DDoS real en curso antes de gastar un uso.
+export const EVENT_TYPE_NONE = 0;
+export const EVENT_TYPE_DDOS = 1;
+export const EVENT_TYPE_FIBER_CUT = 2;
+export const EVENT_TYPE_FLASH_CROWD = 3;
+
 // Peso relativo del ataque DDoS al elegir un evento aleatorio (ver EventSystem). Antes de la
 // Semana 4 todos los eventos disponibles pesan 1 (igual probabilidad); desde la Semana 4 el
 // DDoS pesa esto, haciéndolo mucho más frecuente que un corte de cable o un flash crowd.
@@ -175,9 +186,16 @@ export const PACKET_RATE_BOOST_FROM_WEEK5 = 1.3;
 export const PACKET_RATE_JITTER_FROM_WEEK5 = 0.45;
 
 // Probabilidad de que el Firewall Anti-DDoS bloquee por completo un ataque (antes era 100%
-// garantizado). Si falla, el ataque no se detiene y además duplica su potencia.
-export const DDOS_FIREWALL_BLOCK_CHANCE = 0.5;
+// garantizado, luego 50%). Si falla, el ataque no se detiene y además duplica su potencia.
+export const DDOS_FIREWALL_BLOCK_CHANCE = 0.6;
 export const FIREWALL_FAIL_POWER_MULTIPLIER = 2;
+
+// El Firewall y el Balanceador de Carga tienen un número limitado de usos: cada ataque DDoS
+// real (verificado contra el contador de eventos, ver EVENT_TYPE_DDOS más abajo) que ocurre
+// mientras están activos consume 1 uso, lo bloquee o no. Al llegar a 0 se pierden (dejan de
+// estar activos) y vuelven a poder salir en el sorteo de recompensas semanales.
+export const FIREWALL_MAX_CHARGES = 2;
+export const LOAD_BALANCER_MAX_CHARGES = 3;
 
 // Desde la Semana 7, los ataques DDoS tienen más potencia base (más paquetes por segundo),
 // independientemente de si el jugador tiene Firewall o no. Se combina multiplicativamente con
@@ -191,9 +209,12 @@ export const DDOS_BASE_POWER_FROM_WEEK7 = 1.5;
 export const HARD_MODE_FROM_WEEK = 5;
 
 // Cantidad de tramos de cable que corta simultáneamente el evento de Corte de Fibra: el valor
-// base aplica hasta HARD_MODE_FROM_WEEK, y desde ahí sube a FIBER_CUT_HEAVY_TILE_COUNT.
+// base aplica hasta HARD_MODE_FROM_WEEK, y desde ahí sube a FIBER_CUT_HEAVY_TILE_COUNT. Los
+// tramos quedan inhabilitados por FIBER_CUT_DURATION_SECONDS, que es también cuánto dura el
+// evento para efectos del contador global (EVENT_TYPE_FIBER_CUT).
 export const FIBER_CUT_TILE_COUNT = 6;
 export const FIBER_CUT_HEAVY_TILE_COUNT = 10;
+export const FIBER_CUT_DURATION_SECONDS = 9;
 
 // A partir de esta semana, la Demanda Pico se garantiza un mínimo de FLASH_CROWD_MIN_PER_WEEK
 // veces por semana y dispara tráfico desde TODOS los nodos emisores en cada ráfaga. Antes de
@@ -262,9 +283,12 @@ export const DDOS_RECEIVER_LOCKOUT_SECONDS = 10;
 // ataque.
 export const LOAD_BALANCER_DDOS_LOCKOUT_MULTIPLIER = 0.5;
 
-// Peso relativo (respecto a 1 de un emisor normal) que tiene un nodo con Limitador de Requests
-// instalado al sortear qué emisor origina cada paquete de un ataque DDoS dirigido a su forma:
-// 0.25 significa 75% menos probabilidad relativa de ser el elegido (ver
-// TrafficGenerator.pickDDoSOriginSender). Nunca queda en 0: si TODOS los emisores de esa forma
-// tienen el limitador, igual generan tráfico, solo que mucho menos.
-export const REQUEST_LIMITER_DDOS_WEIGHT = 0.25;
+// Cuando el emisor sorteado para originar el próximo paquete de un ataque DDoS tiene el
+// Limitador de Requests instalado, esta es la probabilidad de que ese turno se descarte por
+// completo (no se genera ningún paquete esta ráfaga) en vez de dejarlo pasar. A diferencia de
+// un peso relativo dentro de un sorteo compartido (cuyo efecto real dependía de cuántos otros
+// emisores hubiera), esto hace que el nodo limitado genere, en promedio, exactamente un 75%
+// menos de paquetes maliciosos que le tocarían por su cuota normal, sin importar el tamaño de
+// la red (ver TrafficGenerator.pickDDoSOriginSender). Nunca llega a ser 0 paquetes: el 25%
+// restante de las veces que le toca, el paquete sí se genera.
+export const REQUEST_LIMITER_DDOS_SKIP_CHANCE = 0.75;

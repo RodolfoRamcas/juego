@@ -31,8 +31,8 @@ export class Node {
     // Capacidad de cola y búfer
     this.hasSwitch = false; // Switch de Red Gigabit instalado (también reduce el cooldown normal)
     // Limitador de Requests: si este nodo (emisor) se ve arrastrado a generar tráfico de un
-    // ataque DDoS por ser emisor de la forma atacada, produce muchos menos paquetes rojos (ver
-    // TrafficGenerator.pickDDoSOriginSender).
+    // ataque DDoS por ser emisor de la forma atacada, genera un 75% menos de paquetes rojos
+    // (ver TrafficGenerator.pickDDoSOriginSender).
     this.hasRequestLimiter = false;
     this.bufferCapacity = DEFAULT_NODE_BUFFER_CAPACITY;
     this.buffer = []; // Paquetes esperando encolados

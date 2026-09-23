@@ -3,7 +3,9 @@
  * Otorga al jugador mejoras estratégicas cada Domingo a medianoche.
  */
 
-import { UPGRADE_TYPES, CABLE_REINFORCEMENT_GRANT_AMOUNT } from '../config/constants.js';
+import {
+  UPGRADE_TYPES, CABLE_REINFORCEMENT_GRANT_AMOUNT, FIREWALL_MAX_CHARGES, LOAD_BALANCER_MAX_CHARGES
+} from '../config/constants.js';
 
 export class UpgradeSystem {
   constructor(engine) {
@@ -25,12 +27,12 @@ export class UpgradeSystem {
     container.innerHTML = '';
 
     // Seleccionar 2 mejoras distintas aleatorias (aparte de las piezas, que ya se otorgaron).
-    // El Firewall y el Balanceador de Carga son de un solo uso: no se ofrecen de nuevo una vez
-    // activos.
+    // El Firewall y el Balanceador de Carga tienen usos limitados: mientras les queden cargas
+    // (> 0), no se vuelven a ofrecer.
     const pool = [
-      ...(this.engine.hasLoadBalancer ? [] : [UPGRADE_TYPES.LOAD_BALANCER]),
+      ...(this.engine.loadBalancerCharges > 0 ? [] : [UPGRADE_TYPES.LOAD_BALANCER]),
       UPGRADE_TYPES.PROTOCOL_ACCELERATOR,
-      ...(this.engine.hasFirewall ? [] : [UPGRADE_TYPES.FIREWALL]),
+      ...(this.engine.firewallCharges > 0 ? [] : [UPGRADE_TYPES.FIREWALL]),
       UPGRADE_TYPES.NETWORK_SWITCH,
       UPGRADE_TYPES.CABLE_REINFORCEMENT,
       UPGRADE_TYPES.REQUEST_LIMITER
@@ -71,7 +73,7 @@ export class UpgradeSystem {
   applyUpgrade(upgrade) {
     switch (upgrade.id) {
       case 'load_balancer':
-        this.engine.hasLoadBalancer = true;
+        this.engine.loadBalancerCharges = LOAD_BALANCER_MAX_CHARGES;
         this.engine.updateBalancerBadge();
         break;
 
@@ -81,7 +83,7 @@ export class UpgradeSystem {
         break;
 
       case 'firewall':
-        this.engine.hasFirewall = true;
+        this.engine.firewallCharges = FIREWALL_MAX_CHARGES;
         this.engine.updateFirewallBadge();
         break;
 

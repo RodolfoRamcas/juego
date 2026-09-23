@@ -8,7 +8,7 @@ import { Packet } from '../entities/Packet.js';
 import {
   NODE_SHAPES, PACKET_RATE_BOOST_FROM_WEEK4, NODE_SPAWN_INTERVAL_MULTIPLIER_FROM_WEEK4,
   PACKET_RATE_BOOST_FROM_WEEK5, PACKET_RATE_JITTER_FROM_WEEK5, HARD_MODE_FROM_WEEK,
-  DDOS_PACKET_COLOR, REQUEST_LIMITER_DDOS_WEIGHT
+  DDOS_PACKET_COLOR, REQUEST_LIMITER_DDOS_SKIP_CHANCE
 } from '../config/constants.js';
 
 export class TrafficGenerator {
@@ -208,6 +208,8 @@ export class TrafficGenerator {
     if (!hasReceiver) return false;
 
     const originNode = isDDoS ? this.pickDDoSOriginSender(senders) : senders[Math.floor(Math.random() * senders.length)];
+    if (!originNode) return false; // el Limitador de Requests frenó este turno del DDoS
+
     const packet = new Packet(originNode, shape);
     if (isDDoS) {
       packet.isDDoS = true;
@@ -222,18 +224,18 @@ export class TrafficGenerator {
     return added;
   }
 
-  // Sortea qué emisor origina el próximo paquete DDoS: los que tienen Limitador de Requests
-  // instalado pesan REQUEST_LIMITER_DDOS_WEIGHT en vez de 1, así que resultan elegidos con
-  // mucha menor frecuencia (generan muchos menos paquetes rojos) sin quedar 100% exentos.
+  // Sortea uniformemente qué emisor le toca originar el próximo paquete DDoS. Si el elegido
+  // tiene Limitador de Requests instalado, hay REQUEST_LIMITER_DDOS_SKIP_CHANCE (75%) de
+  // probabilidad de que ese turno se descarte por completo (retorna null, no se genera ningún
+  // paquete esta ráfaga) en vez de repartir la diferencia entre los demás emisores. Así el nodo
+  // limitado termina generando, en promedio, exactamente un 75% menos de paquetes maliciosos
+  // que le tocarían por su cuota normal, sin importar cuántos otros emisores haya en la red.
   pickDDoSOriginSender(senders) {
-    const totalWeight = senders.reduce((sum, n) => sum + (n.hasRequestLimiter ? REQUEST_LIMITER_DDOS_WEIGHT : 1), 0);
-    let roll = Math.random() * totalWeight;
-    for (const node of senders) {
-      const weight = node.hasRequestLimiter ? REQUEST_LIMITER_DDOS_WEIGHT : 1;
-      if (roll < weight) return node;
-      roll -= weight;
+    const candidate = senders[Math.floor(Math.random() * senders.length)];
+    if (candidate.hasRequestLimiter && Math.random() < REQUEST_LIMITER_DDOS_SKIP_CHANCE) {
+      return null;
     }
-    return senders[senders.length - 1];
+    return candidate;
   }
 
   // Evento de Demanda Pico (Flash Crowd): en cada ráfaga, genera un paquete desde una fracción

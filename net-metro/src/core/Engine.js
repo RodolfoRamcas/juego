@@ -6,8 +6,9 @@
 import {
   TIME_CONFIG, GAME_SPEEDS, GRID_CELL_SIZE, PIECE_COST_PER_TILE,
   MAX_PACKET_LIFETIME, MAX_LOST_PACKETS, ROAD_COLOR, ROAD_GLOW, ROAD_BLOCKED_COLOR,
-  WORLD_SIZE_MULTIPLIER, NODE_RECEIVE_COOLDOWN, LOAD_BALANCER_RECEIVE_COOLDOWN, SWITCH_BURST_CAPACITY,
-  DDOS_RECEIVER_LOCKOUT_SECONDS, LOAD_BALANCER_DDOS_LOCKOUT_MULTIPLIER, RESTART_HOLD_SECONDS
+  GRID_COLS_FIXED, GRID_ROWS_FIXED, NODE_RECEIVE_COOLDOWN, LOAD_BALANCER_RECEIVE_COOLDOWN, SWITCH_BURST_CAPACITY,
+  DDOS_RECEIVER_LOCKOUT_SECONDS, LOAD_BALANCER_DDOS_LOCKOUT_MULTIPLIER, RESTART_HOLD_SECONDS,
+  FIREWALL_MAX_CHARGES, LOAD_BALANCER_MAX_CHARGES
 } from '../config/constants.js';
 import { GAME_CONFIG } from '../config/levels.js';
 import { RoadGrid } from './RoadGrid.js';
@@ -55,12 +56,16 @@ export class Engine {
     // desplaza sobre él en vez de estar fija (evita nodos generados fuera de la vista inicial)
     this.camera = { x: 0, y: 0 };
 
-    // Hardware y defensas
-    this.hasFirewall = false;
-    // Balanceador de Carga: objeto pasivo de un solo uso (como el Firewall). Mientras esté
-    // activo, cualquier nodo golpeado por un impacto DDoS recibe solo la mitad del bloqueo de
-    // recepción normal durante la duración del ataque (ver Engine.onDDoSPacketHit).
-    this.hasLoadBalancer = false;
+    // Hardware y defensas: Firewall y Balanceador de Carga tienen un número limitado de usos
+    // (0 = no lo tienes / se agotó). Cada ataque DDoS real que enfrentan (verificado contra el
+    // contador de eventos, ver EventSystem.activeEventType) consume 1 uso; al llegar a 0 se
+    // pierden y vuelven a poder salir en las recompensas semanales (ver UpgradeSystem).
+    this.firewallCharges = 0;
+    // Mientras esté en 1, cualquier nodo golpeado por un impacto DDoS durante el ataque ACTUAL
+    // recibe solo la mitad del bloqueo de recepción normal (ver Engine.onDDoSPacketHit). Lo fija
+    // EventSystem.triggerDDoS al iniciar cada ataque, según si quedaban usos del Balanceador.
+    this.loadBalancerCharges = 0;
+    this.loadBalancerActiveForAttack = false;
 
     // Presión de tiempo: paquetes perdidos por exceder su tiempo límite de entrega
     this.packetsLost = 0;
@@ -95,17 +100,12 @@ export class Engine {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
 
-    if (this.state === 'MENU') {
-      // Aún no hay partida ni mundo fijado: la grilla se ajusta al tamaño de pantalla disponible
-      this.roadGrid.configure(
-        Math.max(1, Math.floor(this.canvas.width / GRID_CELL_SIZE)),
-        Math.max(1, Math.floor(this.canvas.height / GRID_CELL_SIZE))
-      );
-    } else {
-      // El tamaño del mundo se fija al iniciar la partida (ver startGame) para no invalidar
-      // cables/nodos ya colocados si la ventana cambia de tamaño durante la partida
-      this.clampCamera();
-    }
+    // El tamaño de la grilla del mapa es FIJO (GRID_COLS_FIXED x GRID_ROWS_FIXED): no depende
+    // de la ventana ni de la pantalla, así que solo hace falta (re)configurarla aquí una vez
+    // por resize; nunca invalida cables/nodos ya colocados (RoadGrid.configure solo cambia
+    // cols/rows, no toca las celdas).
+    this.roadGrid.configure(GRID_COLS_FIXED, GRID_ROWS_FIXED);
+    this.clampCamera();
   }
 
   // Mantiene la cámara dentro de los límites del mundo de la grilla
@@ -119,17 +119,24 @@ export class Engine {
   }
 
   // Centra la cámara sobre el promedio de posiciones de los nodos actuales (o el centro del
-  // mundo si aún no hay ninguno). Se usa al iniciar la partida y como botón "Centrar" del HUD.
+  // mundo si aún no hay ninguno). Es el botón "Centrar" (🎯) del HUD.
   centerCameraOnNodes() {
     if (this.nodes.length === 0) {
-      this.camera.x = (this.roadGrid.cols * GRID_CELL_SIZE - this.canvas.width) / 2;
-      this.camera.y = (this.roadGrid.rows * GRID_CELL_SIZE - this.canvas.height) / 2;
-    } else {
-      const avgX = this.nodes.reduce((sum, n) => sum + n.x, 0) / this.nodes.length;
-      const avgY = this.nodes.reduce((sum, n) => sum + n.y, 0) / this.nodes.length;
-      this.camera.x = avgX - this.canvas.width / 2;
-      this.camera.y = avgY - this.canvas.height / 2;
+      this.centerCameraOnGrid();
+      return;
     }
+    const avgX = this.nodes.reduce((sum, n) => sum + n.x, 0) / this.nodes.length;
+    const avgY = this.nodes.reduce((sum, n) => sum + n.y, 0) / this.nodes.length;
+    this.camera.x = avgX - this.canvas.width / 2;
+    this.camera.y = avgY - this.canvas.height / 2;
+    this.clampCamera();
+  }
+
+  // Centra la cámara sobre el centro geométrico del mapa (tamaño fijo), sin importar dónde
+  // hayan quedado los nodos. Se usa al iniciar/reiniciar la partida (ver startGame).
+  centerCameraOnGrid() {
+    this.camera.x = (this.roadGrid.cols * GRID_CELL_SIZE - this.canvas.width) / 2;
+    this.camera.y = (this.roadGrid.rows * GRID_CELL_SIZE - this.canvas.height) / 2;
     this.clampCamera();
   }
 
@@ -142,21 +149,17 @@ export class Engine {
     this.state = 'PLAYING';
     this.speed = GAME_SPEEDS.NORMAL;
 
-    // Resetear entidades y red de cables. El mundo de la grilla es más grande que la pantalla
-    // (WORLD_SIZE_MULTIPLIER en cada eje) para que la red pueda expandirse más allá de la vista
-    // inicial; la cámara se recorre con WASD/flechas, arrastre con clic central o rueda del mouse.
+    // Resetear entidades y red de cables. El mapa tiene tamaño fijo (GRID_COLS_FIXED x
+    // GRID_ROWS_FIXED, ver constants.js): no depende de la pantalla del jugador ni cambia entre
+    // partidas; la cámara se recorre con WASD/flechas, arrastre con clic central o rueda del mouse.
     this.nodes = [];
     this.roadGrid = new RoadGrid();
-    const viewportCols = Math.max(1, Math.floor(this.canvas.width / GRID_CELL_SIZE));
-    const viewportRows = Math.max(1, Math.floor(this.canvas.height / GRID_CELL_SIZE));
-    this.roadGrid.configure(
-      Math.round(viewportCols * WORLD_SIZE_MULTIPLIER),
-      Math.round(viewportRows * WORLD_SIZE_MULTIPLIER)
-    );
+    this.roadGrid.configure(GRID_COLS_FIXED, GRID_ROWS_FIXED);
     this.activePackets = [];
     this.lossEffects = [];
-    this.hasFirewall = false;
-    this.hasLoadBalancer = false;
+    this.firewallCharges = 0;
+    this.loadBalancerCharges = 0;
+    this.loadBalancerActiveForAttack = false;
 
     // Presupuesto inicial de piezas de cable e inventario especial
     this.roadBudget = levelConfig.initialRoadBudget || 40;
@@ -186,9 +189,9 @@ export class Engine {
       this.trafficGenerator.spawnProceduralNodePair();
     }
 
-    // Encuadrar la cámara sobre la red inicial: la partida arranca con todos los nodos
-    // iniciales a la vista; los que aparezcan más adelante sí pueden requerir desplazarse
-    this.centerCameraOnNodes();
+    // La cámara siempre arranca centrada en el centro geométrico del mapa (tamaño fijo), sin
+    // importar dónde hayan quedado colocados los nodos iniciales.
+    this.centerCameraOnGrid();
 
     // Actualizar UI
     this.updateHUDLabels();
@@ -380,7 +383,7 @@ export class Engine {
   // Carga está activo). Cada impacto reinicia el bloqueo desde cero, así que el conteo real
   // solo arranca tras el ÚLTIMO paquete DDoS que llegue.
   onDDoSPacketHit(packet, node) {
-    const lockoutDuration = this.hasLoadBalancer
+    const lockoutDuration = this.loadBalancerActiveForAttack
       ? DDOS_RECEIVER_LOCKOUT_SECONDS * LOAD_BALANCER_DDOS_LOCKOUT_MULTIPLIER
       : DDOS_RECEIVER_LOCKOUT_SECONDS;
 
@@ -894,18 +897,22 @@ export class Engine {
     }
   }
 
-  // Muestra/oculta el icono 🛡️ en la esquina superior del HUD mientras el Firewall esté activo
+  // Muestra/oculta el icono 🛡️ en la esquina superior del HUD mientras queden usos del
+  // Firewall, y el número de usos restantes.
   updateFirewallBadge() {
     const badge = document.getElementById('firewall-badge');
     if (badge) {
-      badge.classList.toggle('hidden', !this.hasFirewall);
+      badge.classList.toggle('hidden', this.firewallCharges <= 0);
+      badge.textContent = `🛡️×${this.firewallCharges}`;
     }
   }
 
+  // Igual que updateFirewallBadge, pero para el Balanceador de Carga (⚖️).
   updateBalancerBadge() {
     const badge = document.getElementById('balancer-badge');
     if (badge) {
-      badge.classList.toggle('hidden', !this.hasLoadBalancer);
+      badge.classList.toggle('hidden', this.loadBalancerCharges <= 0);
+      badge.textContent = `⚖️×${this.loadBalancerCharges}`;
     }
   }
 

@@ -6,10 +6,11 @@
 import {
   DDOS_WEIGHT_FROM_WEEK4, DDOS_FIREWALL_BLOCK_CHANCE, FIREWALL_FAIL_POWER_MULTIPLIER,
   DDOS_BASE_POWER_FROM_WEEK7, FIBER_CUT_TILE_COUNT, FIBER_CUT_HEAVY_TILE_COUNT,
-  HARD_MODE_FROM_WEEK, FLASH_CROWD_HEAVY_FROM_WEEK,
+  FIBER_CUT_DURATION_SECONDS, HARD_MODE_FROM_WEEK, FLASH_CROWD_HEAVY_FROM_WEEK,
   FLASH_CROWD_MIN_PER_WEEK, FLASH_CROWD_BURST_INTERVAL_MS, FLASH_CROWD_DURATION_SECONDS,
   FLASH_CROWD_HEAVY_SENDER_FRACTION,
-  FLASH_CROWD_LIGHT_INTERVAL_MS, FLASH_CROWD_LIGHT_DURATION_SECONDS, TIME_CONFIG
+  FLASH_CROWD_LIGHT_INTERVAL_MS, FLASH_CROWD_LIGHT_DURATION_SECONDS, TIME_CONFIG,
+  EVENT_TYPE_NONE, EVENT_TYPE_DDOS, EVENT_TYPE_FIBER_CUT, EVENT_TYPE_FLASH_CROWD
 } from '../config/constants.js';
 
 export class EventSystem {
@@ -17,17 +18,17 @@ export class EventSystem {
     this.engine = engine;
     this.timer = 0;
     this.flashCrowdTimer = 0;
-    // Un DDoS y una Demanda Pico nunca están activos a la vez (combinados podrían generar una
-    // pérdida prácticamente automática e injusta): `activeEvent` guarda cuál de los dos está
-    // corriendo ('DDOS' | 'FLASH_CROWD' | null) y `activeEventTimer` cuánto le queda.
-    this.activeEvent = null;
+    // Contador global de "qué evento está corriendo ahora" (ver EVENT_TYPE_* en constants.js):
+    // EVENT_TYPE_NONE (0) cuando no hay ninguno, o el valor propio del evento activo. Solo
+    // puede haber UN evento a la vez; `activeEventTimer` guarda cuánto le queda.
+    this.activeEventType = EVENT_TYPE_NONE;
     this.activeEventTimer = 0;
   }
 
   reset() {
     this.timer = 0;
     this.flashCrowdTimer = 0;
-    this.activeEvent = null;
+    this.activeEventType = EVENT_TYPE_NONE;
     this.activeEventTimer = 0;
   }
 
@@ -39,7 +40,7 @@ export class EventSystem {
       this.activeEventTimer -= dt;
       if (this.activeEventTimer <= 0) {
         this.activeEventTimer = 0;
-        this.activeEvent = null;
+        this.activeEventType = EVENT_TYPE_NONE;
       }
     }
 
@@ -60,9 +61,9 @@ export class EventSystem {
       const weekSeconds = TIME_CONFIG.DAYS_PER_WEEK * TIME_CONFIG.SECONDS_PER_DAY;
       const flashCrowdThreshold = weekSeconds / FLASH_CROWD_MIN_PER_WEEK;
 
-      // Si hay un DDoS activo, no se resetea el timer: sigue acumulado y la Demanda Pico
-      // garantizada se dispara apenas termine, en vez de perderse ese ciclo.
-      if (this.flashCrowdTimer >= flashCrowdThreshold && this.activeEvent !== 'DDOS') {
+      // Si ya hay OTRO evento activo (el que sea), no se resetea el timer: sigue acumulado y
+      // la Demanda Pico garantizada se dispara apenas termine, en vez de perderse ese ciclo.
+      if (this.flashCrowdTimer >= flashCrowdThreshold && this.activeEventType === EVENT_TYPE_NONE) {
         this.flashCrowdTimer = 0;
         this.triggerFlashCrowd();
       }
@@ -70,6 +71,11 @@ export class EventSystem {
   }
 
   triggerRandomEvent() {
+    // Solo puede haber un evento a la vez: si ya hay uno corriendo, este ciclo del sorteo se
+    // descarta por completo (antes se filtraba tipo por tipo; ahora, con el contador
+    // compartido, ningún evento nuevo puede empezar mientras otro siga activo).
+    if (this.activeEventType !== EVENT_TYPE_NONE) return;
+
     const week = this.engine.currentWeek;
 
     // La Semana 1 es un período de gracia: nunca hay ataques DDoS mientras el jugador todavía
@@ -89,15 +95,6 @@ export class EventSystem {
         { type: 'FLASH_CROWD', weight: 1 }
       ];
     }
-
-    // Un DDoS y una Demanda Pico nunca coexisten (ver triggerDDoS / triggerFlashCrowd): se
-    // descarta del sorteo el tipo que entraría en conflicto con el evento activo.
-    weightedEvents = weightedEvents.filter(e => {
-      if (e.type === 'DDOS' && this.activeEvent === 'FLASH_CROWD') return false;
-      if (e.type === 'FLASH_CROWD' && this.activeEvent === 'DDOS') return false;
-      return true;
-    });
-    if (weightedEvents.length === 0) return;
 
     const chosen = this.pickWeighted(weightedEvents);
 
@@ -126,21 +123,30 @@ export class EventSystem {
   }
 
   triggerDDoS() {
-    // Nunca coexiste con una Demanda Pico activa (resguardo extra: triggerRandomEvent ya lo
-    // excluye del sorteo, pero esto cubre cualquier otra vía de llamada futura).
-    if (this.activeEvent === 'FLASH_CROWD') return;
+    // Solo puede iniciar si no hay otro evento activo (triggerRandomEvent ya lo filtra, pero
+    // esto cubre cualquier otra vía de llamada futura).
+    if (this.activeEventType !== EVENT_TYPE_NONE) return;
+
+    // Declarar el evento ANTES de resolver Firewall/Balanceador: así ambos pueden verificar de
+    // forma EXPLÍCITA, contra este contador compartido, que hay un ataque DDoS real en curso
+    // antes de gastar uno de sus usos limitados.
+    this.activeEventType = EVENT_TYPE_DDOS;
 
     const week = this.engine.currentWeek;
     // Desde la Semana 7, los ataques DDoS tienen más potencia base (más paquetes por segundo),
     // tenga el jugador Firewall o no.
     let powerMultiplier = week >= 7 ? DDOS_BASE_POWER_FROM_WEEK7 : 1;
 
-    // Firewall Anti-DDoS: ya no bloquea garantizado. Tiene DDOS_FIREWALL_BLOCK_CHANCE (50%) de
-    // probabilidad de detener el ataque por completo (en ese caso no llega a pasar nada, así
-    // que no hace falta ninguna alerta). Si falla esa probabilidad, el ataque prosigue de
-    // todas formas y además duplica su potencia (se combina con el boost de semana 7).
-    if (this.engine.hasFirewall) {
+    // Firewall Anti-DDoS: gasta 1 de sus usos limitados (FIREWALL_MAX_CHARGES) SOLO si el
+    // contador de eventos confirma que esto es un ataque DDoS real. Se gasta bloquee o no; al
+    // agotar sus usos se pierde (vuelve a poder salir en las recompensas). Tiene
+    // DDOS_FIREWALL_BLOCK_CHANCE (60%) de probabilidad de bloquear por completo (nada pasa, sin
+    // alerta); si falla, el ataque prosigue de todas formas y además duplica su potencia.
+    if (this.engine.firewallCharges > 0 && this.activeEventType === EVENT_TYPE_DDOS) {
+      this.engine.firewallCharges--;
+      this.engine.updateFirewallBadge();
       if (Math.random() < DDOS_FIREWALL_BLOCK_CHANCE) {
+        this.activeEventType = EVENT_TYPE_NONE; // el ataque nunca llegó a manifestarse
         return;
       }
       powerMultiplier *= FIREWALL_FAIL_POWER_MULTIPLIER;
@@ -154,14 +160,29 @@ export class EventSystem {
       ? servers[Math.floor(Math.random() * servers.length)]
       : (anyReceiver.length > 0 ? anyReceiver[Math.floor(Math.random() * anyReceiver.length)] : this.engine.nodes[0]);
 
-    if (!target) return;
+    if (!target) {
+      this.activeEventType = EVENT_TYPE_NONE; // no había a quién atacar: el evento no llega a ocurrir
+      return;
+    }
 
     const duration = 7;
     // Marca el nodo como objetivo del ataque (anillo rojo pulsante en el render): así el
     // jugador sabe exactamente qué tramo de cable cortar para frenar la inundación
     target.attackTimer = duration;
-    this.activeEvent = 'DDOS';
     this.activeEventTimer = duration;
+
+    // Balanceador de Carga: gasta 1 de sus usos limitados (LOAD_BALANCER_MAX_CHARGES) SOLO si
+    // el contador de eventos confirma un ataque DDoS real y el Firewall no lo bloqueó (si no
+    // hubo ataque, no hay nada que defender). Mientras esté activo PARA ESTE ataque, cualquier
+    // nodo golpeado por un paquete DDoS recibe la mitad del bloqueo de recepción (ver
+    // Engine.onDDoSPacketHit). Al agotar sus usos se pierde (vuelve a poder salir en las
+    // recompensas).
+    this.engine.loadBalancerActiveForAttack = false;
+    if (this.engine.loadBalancerCharges > 0 && this.activeEventType === EVENT_TYPE_DDOS) {
+      this.engine.loadBalancerCharges--;
+      this.engine.loadBalancerActiveForAttack = true;
+      this.engine.updateBalancerBadge();
+    }
 
     this.engine.showEventBanner('Ataque DDoS', 'danger');
     this.engine.soundManager.playWarningAlarm();
@@ -177,21 +198,24 @@ export class EventSystem {
   // Sin alerta: los tramos bloqueados ya se ven en el mapa (rayado rojo) y suena la alarma;
   // no hace falta un mensaje aparte para "quitar cables".
   triggerFiberCut() {
+    if (this.activeEventType !== EVENT_TYPE_NONE) return;
+
     const tileCount = this.engine.currentWeek >= HARD_MODE_FROM_WEEK ? FIBER_CUT_HEAVY_TILE_COUNT : FIBER_CUT_TILE_COUNT;
-    const blocked = this.engine.roadGrid.blockRandomRoadTiles(tileCount, 9); // Inhabilitados por 9 segundos
+    const blocked = this.engine.roadGrid.blockRandomRoadTiles(tileCount, FIBER_CUT_DURATION_SECONDS);
     if (blocked.length === 0) return;
+
+    this.activeEventType = EVENT_TYPE_FIBER_CUT;
+    this.activeEventTimer = FIBER_CUT_DURATION_SECONDS;
 
     this.engine.soundManager.playWarningAlarm();
   }
 
   triggerFlashCrowd() {
-    // Nunca coexiste con un DDoS activo (resguardo extra: triggerRandomEvent ya lo excluye del
-    // sorteo y update() no resetea flashCrowdTimer mientras haya un DDoS en curso).
-    if (this.activeEvent === 'DDOS') return;
+    if (this.activeEventType !== EVENT_TYPE_NONE) return;
 
     const heavy = this.engine.currentWeek >= FLASH_CROWD_HEAVY_FROM_WEEK;
     const duration = heavy ? FLASH_CROWD_DURATION_SECONDS : FLASH_CROWD_LIGHT_DURATION_SECONDS;
-    this.activeEvent = 'FLASH_CROWD';
+    this.activeEventType = EVENT_TYPE_FLASH_CROWD;
     this.activeEventTimer = duration;
 
     this.engine.showEventBanner('Demanda Pico', 'info');
