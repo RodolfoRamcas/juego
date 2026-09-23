@@ -509,7 +509,10 @@ export class Engine {
       // 2. Actualizar nodos y verificar posible saturación crítica o abandono sin conexión
       let anySaturating = false;
       for (const node of this.nodes) {
-        const isConnected = node.role !== 'receiver' || this.roadGrid.hasAdjacentRoad(node.col, node.row);
+        // No basta con que un cable "toque" al nodo: un tramo suelto que no lleva a ningún
+        // lado (o que no llega a ningún emisor real) igual dejaría al receptor sin poder
+        // recibir tráfico. Se exige un camino real hasta al menos un EMISOR de su misma forma.
+        const isConnected = node.role !== 'receiver' || Router.isConnectedToRole(node, node.shape, 'sender', this.roadGrid);
         const result = node.update(dt, isConnected);
         if (result.isOverflowed) {
           this.triggerGameOver(`Colapso de red en ${node.label} (${node.shape.toUpperCase()}) por Buffer Overflow.`);

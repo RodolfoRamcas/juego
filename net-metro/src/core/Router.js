@@ -86,4 +86,45 @@ export class Router {
     // cell se conserva para que Packet pueda consultar isBlocked/isBoosted en vivo
     return { col: step.col, row: step.row, x: center.x, y: center.y, node, cell: step.cell };
   }
+
+  /**
+   * ¿Existe ALGÚN camino (por tramos de cable transitables, sin importar congestión) desde
+   * `startNode` hasta algún nodo con la forma y el rol indicados? Es una simple búsqueda de
+   * alcanzabilidad (BFS), más liviana que findShortestPathToShape porque no hace falta la
+   * ruta más corta, solo saber si hay conexión real. Se usa para verificar que un nodo
+   * RECEPTOR esté de verdad conectado a al menos un EMISOR de su misma forma (y no solo
+   * "tocado" por un tramo de cable suelto que no lleva a ningún lado, ver Engine.update).
+   * @param {Node} startNode
+   * @param {string} targetShape
+   * @param {'sender'|'receiver'} targetRole
+   * @param {RoadGrid} roadGrid
+   * @returns {boolean}
+   */
+  static isConnectedToRole(startNode, targetShape, targetRole, roadGrid) {
+    if (!startNode || !targetShape || !roadGrid) return false;
+
+    const startKey = `${startNode.col},${startNode.row}`;
+    const visited = new Set([startKey]);
+    const queue = [{ col: startNode.col, row: startNode.row }];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      const cell = roadGrid.getCell(current.col, current.row);
+      const currentNode = cell ? cell.node : null;
+
+      if (currentNode && currentNode !== startNode &&
+        currentNode.shape === targetShape && currentNode.role === targetRole) {
+        return true;
+      }
+
+      for (const neighbor of roadGrid.neighbors(current.col, current.row)) {
+        const key = `${neighbor.col},${neighbor.row}`;
+        if (visited.has(key)) continue;
+        visited.add(key);
+        queue.push({ col: neighbor.col, row: neighbor.row });
+      }
+    }
+
+    return false;
+  }
 }

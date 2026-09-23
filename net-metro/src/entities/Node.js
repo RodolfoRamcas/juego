@@ -98,9 +98,10 @@ export class Node {
     return null;
   }
 
-  // `isConnected`: si este nodo tiene al menos un tramo de cable tocándolo (lo calcula Engine
-  // vía RoadGrid.hasAdjacentRoad, ya que Node no conoce la grilla). Por defecto true, para que
-  // nada que llame a update() sin pasarlo se rompa ni penalice de más.
+  // `isConnected`: si este nodo tiene un camino real de cable hasta al menos un emisor de su
+  // misma forma (lo calcula Engine vía Router.isConnectedToRole, ya que Node no conoce la
+  // grilla). Por defecto true, para que nada que llame a update() sin pasarlo se rompa ni
+  // penalice de más.
   update(dt, isConnected = true) {
     // Animación inicial de spawn
     if (this.spawnProgress < 1) {

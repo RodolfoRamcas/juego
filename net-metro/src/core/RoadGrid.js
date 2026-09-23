@@ -99,18 +99,6 @@ export class RoadGrid {
     return false;
   }
 
-  // ¿Tiene esta celda al menos un tramo de cable tocándola directamente en alguno de sus 4
-  // lados? No exige que el tramo esté libre de bloqueo por mantenimiento: un cable cortado
-  // temporalmente sigue contando como "conectado" (lo que nos interesa aquí es detectar un
-  // nodo al que nunca le construyeron ni un solo cable, no un corte pasajero).
-  hasAdjacentRoad(col, row) {
-    for (const n of orthogonalNeighbors(col, row)) {
-      const cell = this.getCell(n.col, n.row);
-      if (cell && cell.type === CELL_TYPES.ROAD) return true;
-    }
-    return false;
-  }
-
   // Vecinos ortogonales transitables, con su estado de celda incluido
   neighbors(col, row) {
     const result = [];

@@ -153,13 +153,15 @@ export const TILE_MAX_OCCUPANTS = 2;
 // del destino, no de la ruta) y no dispara este reencolado (ver Packet.update).
 export const PACKET_STUCK_REROUTE_SECONDS = 3.0;
 
-// Si un nodo RECEPTOR no tiene NINGÚN tramo de cable tocándolo (ni uno solo, en cualquiera de
-// sus 4 lados) durante esta cantidad de segundos, se considera abandonado y termina la
-// partida — el mismo tipo de consecuencia que un Buffer Overflow, pero por el problema
-// opuesto: un nodo al que nunca le construyeron ni un solo cable. Antes esto no generaba
-// ninguna penalización directa (los paquetes dirigidos a él solo expiraban del lado del
-// emisor, sin señalar cuál era el verdadero problema). Los nodos EMISORES no se rastrean con
-// este temporizador: su desconexión ya se penaliza indirectamente, porque nunca logran
+// Si un nodo RECEPTOR no tiene un camino real de cable hasta al menos un EMISOR de su misma
+// forma (ver Router.isConnectedToRole) durante esta cantidad de segundos, se considera
+// abandonado y termina la partida — el mismo tipo de consecuencia que un Buffer Overflow, pero
+// por el problema opuesto: un nodo que nunca quedó conectado a nada. No basta con que un cable
+// lo "toque": un tramo suelto que no lleva a ningún emisor real no cuenta como conectado (así
+// no se puede evadir la restricción con una sola pieza de cable sin salida). Antes esto no
+// generaba ninguna penalización directa (los paquetes dirigidos a él solo expiraban del lado
+// del emisor, sin señalar cuál era el verdadero problema). Los nodos EMISORES no se rastrean
+// con este temporizador: su desconexión ya se penaliza indirectamente, porque nunca logran
 // despachar nada y sus paquetes expiran por tiempo límite (ver Node.update / Engine). 30s da
 // tiempo real de reacción incluso al arrancar la partida, cuando los 3 pares iniciales corren
 // este conteo a la vez desde el segundo 0 y el jugador recién está orientándose en el mapa.
