@@ -80,9 +80,11 @@
 
 .hud-card {
   pointer-events: auto;
-  background: var(--bg-card);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+  /* Más transparente que --bg-card (usado por la bandeja inferior, que ya está bien así):
+     esta barra superior de estadísticas se pidió aparte, más transparente todavía. */
+  background: rgba(16, 24, 40, 0.06);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
   border: 1px solid var(--bg-card-border);
   border-radius: 12px;
   padding: 10px 18px;
