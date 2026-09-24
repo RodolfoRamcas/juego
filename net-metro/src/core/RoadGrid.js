@@ -7,8 +7,7 @@
 
 import { cellKey, orthogonalNeighbors, cellToPixelCenter } from './Grid.js';
 import {
-  CONGESTION_LOAD_PER_PACKET, CONGESTION_DECAY_PER_SECOND, TILE_MAX_OCCUPANTS,
-  CABLE_REINFORCEMENT_CUT_WEIGHT
+  CONGESTION_LOAD_PER_PACKET, CONGESTION_DECAY_PER_SECOND, TILE_MAX_OCCUPANTS
 } from '../config/constants.js';
 
 const CELL_TYPES = {
@@ -122,26 +121,20 @@ export class RoadGrid {
   }
 
   // Evento de mantenimiento: bloquea temporalmente varios tramos de cable aleatorios y
-  // distintos entre sí (hasta `count`, o menos si no hay tantos tramos disponibles). Los tramos
-  // reforzados (Refuerzo de Cable) pesan CABLE_REINFORCEMENT_CUT_WEIGHT en el sorteo en vez de
-  // 1: mucha menos probabilidad relativa de salir elegidos, pero nunca quedan 100% a salvo.
+  // distintos entre sí (hasta `count`, o menos si no hay tantos tramos disponibles). Nunca
+  // elige un tramo REFORZADO (Refuerzo de Cable: inmunidad total, no solo menor probabilidad)
+  // ni uno que tenga algún paquete encima en este momento (cortarlo ahí generaba conflictos:
+  // el paquete quedaba a mitad de camino sin poder completar el tramo que ya había reclamado).
   blockRandomRoadTiles(count = 1, duration = 9) {
-    const pool = this.getAllRoadCells()
-      .filter(r => !r.cell.isBlocked)
-      .map(r => ({ ref: r, weight: r.cell.isReinforced ? CABLE_REINFORCEMENT_CUT_WEIGHT : 1 }));
-    if (pool.length === 0) return [];
+    const candidates = this.getAllRoadCells().filter(r =>
+      !r.cell.isBlocked &&
+      !r.cell.isReinforced &&
+      !(r.cell.occupants && r.cell.occupants.length > 0)
+    );
+    if (candidates.length === 0) return [];
 
-    const chosen = [];
-    while (chosen.length < count && pool.length > 0) {
-      const totalWeight = pool.reduce((sum, item) => sum + item.weight, 0);
-      let roll = Math.random() * totalWeight;
-      let pickIndex = pool.length - 1;
-      for (let i = 0; i < pool.length; i++) {
-        if (roll < pool[i].weight) { pickIndex = i; break; }
-        roll -= pool[i].weight;
-      }
-      chosen.push(pool.splice(pickIndex, 1)[0].ref);
-    }
+    const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+    const chosen = shuffled.slice(0, Math.min(count, shuffled.length));
 
     for (const c of chosen) {
       c.cell.isBlocked = true;

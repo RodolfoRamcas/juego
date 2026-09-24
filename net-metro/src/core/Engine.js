@@ -43,7 +43,12 @@ export class Engine {
     this.networkSwitches = 0;      // Inicia con 0 switches (se colocan a elección del jugador)
     this.cableReinforcements = 0;  // Inicia con 0 piezas de refuerzo
     this.requestLimiters = 0;      // Inicia con 0 limitadores de requests
-    this.activeTool = 'road';      // 'road' | 'accelerator' | 'switch' | 'reinforcement' | 'limiter'
+    this.hammers = 0;              // Inicia con 0 Martillos Demoledores (desde semana 8)
+    // Cuántos nodos menos permite el tope máximo de la partida: cada Martillo usado resta 1,
+    // de forma permanente, sin importar si el nodo destruido tenía su par completo o no
+    // (ver applyHammerToNode y TrafficGenerator.update).
+    this.maxNodesPenalty = 0;
+    this.activeTool = 'road';      // 'road' | 'accelerator' | 'switch' | 'reinforcement' | 'limiter' | 'hammer'
     this.alarmTimer = 0;
 
     // Reinicio rápido: mantener presionada la tecla R reinicia la partida con un layout de
@@ -167,6 +172,8 @@ export class Engine {
     this.networkSwitches = 0;
     this.cableReinforcements = 0;
     this.requestLimiters = 0;
+    this.hammers = 0;
+    this.maxNodesPenalty = 0;
     this.activeTool = 'road';
     this.packetsLost = 0;
 
@@ -292,6 +299,31 @@ export class Engine {
     this.activeTool = 'road';
     this.soundManager.playLineConnected();
     this.updateRoadUI();
+    return true;
+  }
+
+  // Martillo Demoledor: destruye permanentemente el nodo elegido. Su celda se libera del todo
+  // (deja de existir, no queda ni siquiera como tramo de cable) y el tope máximo de nodos de
+  // la partida baja en 1 para siempre, sin importar si su par (mismo shape, rol opuesto) sigue
+  // en pie o no (ver TrafficGenerator.update, que resta maxNodesPenalty de config.maxNodes).
+  // Cualquier paquete que ya iba en camino hacia este nodo se reencola solo: Packet._advance()
+  // ya revisa en vivo si el tile de destino sigue existiendo en la RoadGrid antes de aceptar
+  // la entrega, y si no lo encuentra, se redirige al último nodo visitado.
+  applyHammerToNode(node) {
+    if (this.hammers <= 0) return false;
+
+    const removed = this.roadGrid.removeNode(node.col, node.row);
+    if (!removed) return false;
+
+    const idx = this.nodes.indexOf(node);
+    if (idx !== -1) this.nodes.splice(idx, 1);
+
+    this.hammers--;
+    this.maxNodesPenalty++;
+    this.activeTool = 'road';
+    this.soundManager.playLineConnected();
+    this.updateRoadUI();
+    this.recalculateAllRoutes();
     return true;
   }
 
@@ -970,6 +1002,14 @@ export class Engine {
       badgeLimiter.textContent = `${this.requestLimiters} disp.`;
       toolLimiter.classList.toggle('disabled', this.requestLimiters <= 0);
       toolLimiter.classList.toggle('active', this.activeTool === 'limiter');
+    }
+
+    const badgeHammer = document.getElementById('badge-count-hammer');
+    const toolHammer = document.getElementById('tool-hammer');
+    if (badgeHammer && toolHammer) {
+      badgeHammer.textContent = `${this.hammers} disp.`;
+      toolHammer.classList.toggle('disabled', this.hammers <= 0);
+      toolHammer.classList.toggle('active', this.activeTool === 'hammer');
     }
   }
 }

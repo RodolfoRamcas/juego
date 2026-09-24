@@ -4,7 +4,8 @@
  */
 
 import {
-  UPGRADE_TYPES, CABLE_REINFORCEMENT_GRANT_AMOUNT, FIREWALL_MAX_CHARGES, LOAD_BALANCER_MAX_CHARGES
+  UPGRADE_TYPES, CABLE_REINFORCEMENT_GRANT_AMOUNT, FIREWALL_MAX_CHARGES, LOAD_BALANCER_MAX_CHARGES,
+  NODE_HAMMER_MIN_WEEK
 } from '../config/constants.js';
 
 export class UpgradeSystem {
@@ -35,7 +36,8 @@ export class UpgradeSystem {
       ...(this.engine.firewallCharges > 0 ? [] : [UPGRADE_TYPES.FIREWALL]),
       UPGRADE_TYPES.NETWORK_SWITCH,
       UPGRADE_TYPES.CABLE_REINFORCEMENT,
-      UPGRADE_TYPES.REQUEST_LIMITER
+      UPGRADE_TYPES.REQUEST_LIMITER,
+      ...(this.engine.currentWeek >= NODE_HAMMER_MIN_WEEK ? [UPGRADE_TYPES.NODE_HAMMER] : [])
     ];
 
     // Barajar pool
@@ -99,6 +101,11 @@ export class UpgradeSystem {
 
       case 'request_limiter':
         this.engine.requestLimiters++;
+        this.engine.updateRoadUI();
+        break;
+
+      case 'node_hammer':
+        this.engine.hammers++;
         this.engine.updateRoadUI();
         break;
     }

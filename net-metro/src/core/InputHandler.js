@@ -137,6 +137,14 @@ export class InputHandler {
       return;
     }
 
+    if (this.engine.activeTool === 'hammer') {
+      const clickedNode = this.getNodeAt(world.x, world.y);
+      if (clickedNode) {
+        this.engine.applyHammerToNode(clickedNode);
+      }
+      return;
+    }
+
     // Herramienta estándar: tender cable por arrastre
     this.startPaintStroke(world.x, world.y);
   }
@@ -314,6 +322,8 @@ export class InputHandler {
       color = existing && existing.type === 'road' && !existing.isReinforced ? '#10b981' : '#f43f5e';
     } else if (this.engine.activeTool === 'limiter') {
       color = existing && existing.type === 'node' && !existing.node.hasRequestLimiter ? '#22c55e' : '#f43f5e';
+    } else if (this.engine.activeTool === 'hammer') {
+      color = existing && existing.type === 'node' ? '#f43f5e' : '#475569';
     } else if (existing) {
       color = existing.type === 'node' ? '#22d3ee' : '#94a3b8'; // ya hay cable/nodo: se puede continuar el trazo gratis
     }

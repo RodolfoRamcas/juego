@@ -43,7 +43,10 @@ export class TrafficGenerator {
     const nodeIntervalMultiplier = isWeek4OrLater ? NODE_SPAWN_INTERVAL_MULTIPLIER_FROM_WEEK4 : 1;
     const spawnThresholdSecs = config.nodeSpawnIntervalDays * nodeIntervalMultiplier * 8; // 8s por día
 
-    if (this.nodeSpawnTimer >= spawnThresholdSecs && this.engine.nodes.length <= config.maxNodes - 2) {
+    // El Martillo Demoledor reduce permanentemente el tope máximo de nodos de la partida
+    // (ver Engine.applyHammerToNode): cada uso resta 1 al `maxNodes` de este nivel.
+    const effectiveMaxNodes = config.maxNodes - this.engine.maxNodesPenalty;
+    if (this.nodeSpawnTimer >= spawnThresholdSecs && this.engine.nodes.length <= effectiveMaxNodes - 2) {
       this.nodeSpawnTimer = 0;
       this.spawnProceduralNodePair();
     }

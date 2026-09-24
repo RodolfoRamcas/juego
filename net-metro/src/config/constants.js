@@ -96,7 +96,7 @@ export const UPGRADE_TYPES = {
     id: 'cable_reinforcement',
     name: 'Refuerzo de Cable',
     icon: '🔩',
-    desc: 'Te da 6 Piezas de Refuerzo: instálalas sobre tramos de cable que elijas para reducir en 75% la probabilidad de que ese tramo sea cortado por mantenimiento.',
+    desc: 'Te da 6 Piezas de Refuerzo: instálalas sobre tramos de cable que elijas para volverlos completamente inmunes al Corte de Fibra (nunca podrán ser cortados por mantenimiento).',
     isDraggable: false
   },
   REQUEST_LIMITER: {
@@ -105,8 +105,18 @@ export const UPGRADE_TYPES = {
     icon: '🚦',
     desc: 'Instálalo en un nodo emisor: si un ataque DDoS lo arrastra a generar tráfico malicioso (por ser emisor de la forma atacada), reduce en 75% la cantidad de paquetes rojos que ese nodo genera.',
     isDraggable: true
+  },
+  NODE_HAMMER: {
+    id: 'node_hammer',
+    name: 'Martillo Demoledor',
+    icon: '🔨',
+    desc: 'Destruye permanentemente el nodo que elijas: ese nodo no vuelve a generarse y el máximo de nodos posibles de toda la partida baja en 1. Disponible solo desde la Semana 8.',
+    isDraggable: true
   }
 };
+
+// El Martillo Demoledor no entra al sorteo de recompensas semanales hasta esta semana.
+export const NODE_HAMMER_MIN_WEEK = 8;
 
 export const GAME_SPEEDS = {
   PAUSE: 0,
@@ -269,13 +279,9 @@ export const FLASH_CROWD_LIGHT_DURATION_SECONDS = 6;
 // EventSystem.triggerDDoS / triggerFlashCrowd).
 
 // Cuántas "Piezas de Refuerzo" otorga cada Refuerzo de Cable que el jugador elige como mejora
-// semanal.
+// semanal. Un tramo reforzado queda inmune por completo al evento de Corte de Fibra: nunca
+// puede ser elegido como uno de los tramos cortados (ver RoadGrid.blockRandomRoadTiles).
 export const CABLE_REINFORCEMENT_GRANT_AMOUNT = 6;
-
-// Peso relativo (respecto a 1 de un tramo normal) que tiene un tramo reforzado al sortear cuál
-// tramo cortar en un evento de Corte de Fibra: 0.25 significa 75% menos probabilidad relativa
-// de ser el elegido (nunca queda 100% a salvo, ver RoadGrid.blockRandomRoadTiles).
-export const CABLE_REINFORCEMENT_CUT_WEIGHT = 0.25;
 
 // Los paquetes de un ataque DDoS se identifican en este color (en vez del azul normal), y la
 // única forma de neutralizarlos es evitar que avancen: si pasan más de

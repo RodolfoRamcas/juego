@@ -225,6 +225,16 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const toolHammerEl = document.getElementById('tool-hammer');
+  if (toolHammerEl) {
+    toolHammerEl.addEventListener('click', () => {
+      if (engine.hammers > 0) {
+        engine.activeTool = engine.activeTool === 'hammer' ? 'road' : 'hammer';
+        engine.updateRoadUI();
+      }
+    });
+  }
+
   // Atajos de teclado
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;

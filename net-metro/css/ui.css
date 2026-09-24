@@ -339,6 +339,8 @@
 }
 
 /* ==================== MODALES Y VENTANAS ==================== */
+/* Menús/ventanas semitransparentes: se alcanza a ver el tablero de fondo en vez de taparlo
+   por completo, en vez de un fondo sólido opaco. */
 .modal-overlay {
   position: absolute;
   top: 0;
@@ -346,8 +348,8 @@
   width: 100vw;
   height: 100vh;
   z-index: 100;
-  background: rgba(7, 10, 19, 0.82);
-  backdrop-filter: blur(14px);
+  background: rgba(7, 10, 19, 0.4);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -362,7 +364,8 @@
 }
 
 .modal-content {
-  background: #0f172a;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   padding: 36px;
