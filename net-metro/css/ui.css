@@ -339,8 +339,8 @@
 }
 
 /* ==================== MODALES Y VENTANAS ==================== */
-/* Menús/ventanas semitransparentes: se alcanza a ver el tablero de fondo en vez de taparlo
-   por completo, en vez de un fondo sólido opaco. */
+/* Fondo sólido por defecto (menú principal, elegir mejora semanal, tabla de posiciones): la
+   semitransparencia NO va acá, solo en las dos excepciones de más abajo. */
 .modal-overlay {
   position: absolute;
   top: 0;
@@ -348,9 +348,9 @@
   width: 100vw;
   height: 100vh;
   z-index: 100;
-  background: rgba(7, 10, 19, 0.22);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  background: rgba(7, 10, 19, 0.82);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -365,18 +365,33 @@
 }
 
 .modal-content {
-  background: rgba(15, 23, 42, 0.45);
-  -webkit-backdrop-filter: blur(5px);
-  backdrop-filter: blur(5px);
+  background: #0f172a;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   padding: 36px;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
   max-height: 90vh;
   overflow-y: auto;
   position: relative;
   text-align: center;
   animation: modalScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Excepción: el menú de objetos/instrucciones (⚙, se abre sobre la partida en curso) y el
+   resumen de estadísticas de Game Over sí quedan semitransparentes (bastante más que el intento
+   anterior), para poder consultar el tablero de fondo sin tener que cerrarlos primero. */
+#modal-instructions.modal-overlay,
+#modal-gameover.modal-overlay {
+  background: rgba(7, 10, 19, 0.15);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+#modal-instructions .modal-content,
+#modal-gameover .modal-content {
+  background: rgba(15, 23, 42, 0.3);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 
 @keyframes modalScaleUp {
