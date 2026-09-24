@@ -147,6 +147,7 @@ export class EventSystem {
       this.engine.updateFirewallBadge();
       if (Math.random() < DDOS_FIREWALL_BLOCK_CHANCE) {
         this.activeEventType = EVENT_TYPE_NONE; // el ataque nunca llegó a manifestarse
+        this.engine.showEventBanner('Firewall bloqueó el DDoS', 'success');
         return;
       }
       powerMultiplier *= FIREWALL_FAIL_POWER_MULTIPLIER;

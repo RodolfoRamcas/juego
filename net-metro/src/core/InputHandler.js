@@ -139,8 +139,8 @@ export class InputHandler {
 
     if (this.engine.activeTool === 'hammer') {
       const clickedNode = this.getNodeAt(world.x, world.y);
-      if (clickedNode) {
-        this.engine.applyHammerToNode(clickedNode);
+      if (clickedNode && !this.engine.applyHammerToNode(clickedNode)) {
+        this.engine.soundManager.playWarningAlarm();
       }
       return;
     }
@@ -323,7 +323,7 @@ export class InputHandler {
     } else if (this.engine.activeTool === 'limiter') {
       color = existing && existing.type === 'node' && !existing.node.hasRequestLimiter ? '#22c55e' : '#f43f5e';
     } else if (this.engine.activeTool === 'hammer') {
-      color = existing && existing.type === 'node' ? '#f43f5e' : '#475569';
+      color = existing && existing.type === 'node' && this.engine.canHammerNode(existing.node) ? '#f43f5e' : '#475569';
     } else if (existing) {
       color = existing.type === 'node' ? '#22d3ee' : '#94a3b8'; // ya hay cable/nodo: se puede continuar el trazo gratis
     }

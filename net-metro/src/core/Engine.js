@@ -113,14 +113,26 @@ export class Engine {
     this.clampCamera();
   }
 
-  // Mantiene la cámara dentro de los límites del mundo de la grilla
+  // Mantiene la cámara dentro de los límites del mundo de la grilla. Si el mundo es más chico
+  // que la ventana en algún eje (grilla fija de GRID_COLS_FIXED x GRID_ROWS_FIXED contra una
+  // pantalla ancha/alta), no hay margen real para "recorrer": en ese eje la cámara queda fija
+  // en el centro geométrico del mundo (valor negativo incluido) en vez de forzarse a 0, que
+  // antes pegaba la grilla contra la esquina superior izquierda dejando un borde vacío enorme.
   clampCamera() {
     const worldWidth = this.roadGrid.cols * GRID_CELL_SIZE;
     const worldHeight = this.roadGrid.rows * GRID_CELL_SIZE;
-    const maxX = Math.max(0, worldWidth - this.canvas.width);
-    const maxY = Math.max(0, worldHeight - this.canvas.height);
-    this.camera.x = Math.min(Math.max(0, this.camera.x), maxX);
-    this.camera.y = Math.min(Math.max(0, this.camera.y), maxY);
+
+    if (worldWidth <= this.canvas.width) {
+      this.camera.x = (worldWidth - this.canvas.width) / 2;
+    } else {
+      this.camera.x = Math.min(Math.max(0, this.camera.x), worldWidth - this.canvas.width);
+    }
+
+    if (worldHeight <= this.canvas.height) {
+      this.camera.y = (worldHeight - this.canvas.height) / 2;
+    } else {
+      this.camera.y = Math.min(Math.max(0, this.camera.y), worldHeight - this.canvas.height);
+    }
   }
 
   // Centra la cámara sobre el promedio de posiciones de los nodos actuales (o el centro del
@@ -302,6 +314,14 @@ export class Engine {
     return true;
   }
 
+  // ¿Se puede usar el Martillo Demoledor sobre este nodo? No sobre una forma que solo tenga
+  // un único par (2 nodos, emisor+receptor): destruirlo la borraría por completo de la partida.
+  // Con 2 pares (4 nodos) o más de esa forma, sí se permite: siempre queda al menos un par vivo.
+  canHammerNode(node) {
+    const sameShapeCount = this.nodes.filter(n => n.shape === node.shape).length;
+    return sameShapeCount > 2;
+  }
+
   // Martillo Demoledor: destruye permanentemente el nodo elegido. Su celda se libera del todo
   // (deja de existir, no queda ni siquiera como tramo de cable) y el tope máximo de nodos de
   // la partida baja en 1 para siempre, sin importar si su par (mismo shape, rol opuesto) sigue
@@ -311,6 +331,7 @@ export class Engine {
   // la entrega, y si no lo encuentra, se redirige al último nodo visitado.
   applyHammerToNode(node) {
     if (this.hammers <= 0) return false;
+    if (!this.canHammerNode(node)) return false;
 
     const removed = this.roadGrid.removeNode(node.col, node.row);
     if (!removed) return false;
