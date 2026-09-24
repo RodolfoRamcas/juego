@@ -45,7 +45,8 @@
 .hud-toggle-tab {
   pointer-events: auto;
   background: var(--bg-card);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   border: 1px solid var(--bg-card-border);
   color: var(--text-secondary);
   font-size: 0.75rem;
@@ -80,7 +81,8 @@
 .hud-card {
   pointer-events: auto;
   background: var(--bg-card);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   border: 1px solid var(--bg-card-border);
   border-radius: 12px;
   padding: 10px 18px;
@@ -236,7 +238,8 @@
   align-items: center;
   gap: 20px;
   background: var(--bg-card);
-  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   border: 1px solid var(--bg-card-border);
   border-radius: 16px;
   padding: 10px 24px;
