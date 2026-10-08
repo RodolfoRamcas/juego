@@ -1,0 +1,454 @@
+/**
+ * NETMETRO - ESTILOS DEL MANDO MÓVIL (controller.html)
+ * Pensado para sujetar el teléfono en horizontal: stick a la izquierda (pulgar izquierdo),
+ * botones a la derecha (pulgar derecho).
+ */
+
+:root {
+  --bg: #0b0f19;
+  --panel: rgba(16, 24, 40, 0.75);
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #f8fafc;
+  --text-dim: #94a3b8;
+  --cyan: #06b6d4;
+  --cyan-glow: rgba(6, 182, 212, 0.45);
+  --rose: #f43f5e;
+  --rose-glow: rgba(244, 63, 94, 0.45);
+  --amber: #f59e0b;
+  --emerald: #10b981;
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: radial-gradient(circle at 30% 60%, #111a2e 0%, var(--bg) 70%);
+  color: var(--text);
+  font-family: var(--font-sans);
+  touch-action: none;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  touch-action: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ==================== DISPOSICIÓN GENERAL ==================== */
+#pad {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "top top"
+    "stick right";
+  padding:
+    max(6px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left));
+  gap: 6px 12px;
+}
+
+/* ==================== BARRA SUPERIOR ==================== */
+.pad-topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 40px;
+}
+
+.pad-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pad-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber);
+}
+
+.pad-dot.online {
+  background: var(--emerald);
+  box-shadow: 0 0 8px var(--emerald);
+}
+
+.pad-dot.offline {
+  background: var(--rose);
+  box-shadow: 0 0 8px var(--rose);
+}
+
+.pad-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.pad-chip {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.pad-chip strong {
+  color: var(--cyan);
+}
+
+.pad-chip.low strong {
+  color: var(--rose);
+}
+
+.pad-top-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pad-icon-btn {
+  width: 40px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 1rem;
+}
+
+.pad-icon-btn.active {
+  border-color: var(--amber);
+  background: rgba(245, 158, 11, 0.18);
+}
+
+/* ==================== STICK ==================== */
+.pad-stick-zone {
+  grid-area: stick;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.pad-stick-base {
+  --size: min(62vh, 42vw, 240px);
+  position: relative;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(6, 182, 212, 0.08) 0%, rgba(6, 182, 212, 0.02) 60%, transparent 61%),
+    var(--panel);
+  border: 2px solid rgba(6, 182, 212, 0.35);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6), 0 0 24px rgba(6, 182, 212, 0.08);
+}
+
+/* Marcas de dirección en la base */
+.pad-stick-base::before {
+  content: '';
+  position: absolute;
+  inset: 18%;
+  border-radius: 50%;
+  border: 1px dashed rgba(148, 163, 184, 0.2);
+}
+
+.pad-stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42%;
+  height: 42%;
+  margin: -21% 0 0 -21%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #67e8f9 0%, var(--cyan) 45%, #0e7490 100%);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55), 0 0 18px var(--cyan-glow);
+  will-change: transform;
+}
+
+.pad-stick-knob.active {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55), 0 0 28px var(--cyan);
+}
+
+/* ==================== ZONA DERECHA ==================== */
+.pad-right-zone {
+  grid-area: right;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 0;
+}
+
+.pad-tools {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.pad-tool {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  height: min(17vh, 68px);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  transition: transform 0.08s, opacity 0.2s;
+}
+
+.pad-tool-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.pad-tool-name {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pad-tool-count {
+  position: absolute;
+  top: -5px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--cyan);
+  color: #04131a;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+}
+
+.pad-tool:disabled {
+  opacity: 0.32;
+}
+
+.pad-tool:disabled .pad-tool-count {
+  background: #334155;
+  color: var(--text-dim);
+}
+
+.pad-tool:not(:disabled):active {
+  transform: scale(0.93);
+  border-color: var(--cyan);
+}
+
+.pad-actions {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 14px;
+  min-height: 0;
+}
+
+.pad-hold-btn {
+  --btn-size: min(38vh, 22vw, 150px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: var(--btn-size);
+  height: var(--btn-size);
+  border-radius: 50%;
+  border: 2px solid;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  transition: transform 0.06s, box-shadow 0.1s;
+}
+
+/* "Quitar" un poco más pequeño y más arriba, como los botones de un mando */
+.pad-erase {
+  --btn-size: min(30vh, 17vw, 118px);
+  align-self: flex-start;
+  margin-top: 4px;
+  border-color: rgba(244, 63, 94, 0.6);
+  background: rgba(244, 63, 94, 0.12);
+}
+
+.pad-put {
+  border-color: rgba(6, 182, 212, 0.7);
+  background: rgba(6, 182, 212, 0.14);
+}
+
+.pad-hold-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.pad-hold-label {
+  font-size: 0.8rem;
+}
+
+.pad-put.pressed {
+  transform: scale(0.94);
+  background: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 0 26px var(--cyan-glow);
+}
+
+.pad-erase.pressed {
+  transform: scale(0.94);
+  background: rgba(244, 63, 94, 0.4);
+  box-shadow: 0 0 26px var(--rose-glow);
+}
+
+/* ==================== AVISOS ==================== */
+.pad-toast {
+  position: fixed;
+  left: 50%;
+  top: 54px;
+  transform: translate(-50%, -8px);
+  max-width: 70vw;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.pad-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.pad-toast.error {
+  border-color: var(--rose);
+  color: #fecdd3;
+}
+
+.pad-toast.ok {
+  border-color: var(--emerald);
+  color: #a7f3d0;
+}
+
+.pad-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(5, 8, 15, 0.86);
+  backdrop-filter: blur(6px);
+}
+
+.pad-overlay-box {
+  width: min(560px, 100%);
+  text-align: center;
+}
+
+.pad-overlay-box h2 {
+  margin: 0 0 6px;
+  font-size: 1.3rem;
+  letter-spacing: 0.04em;
+}
+
+.pad-overlay-box p {
+  margin: 0 0 16px;
+  color: var(--text-dim);
+}
+
+.pad-overlay-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.pad-overlay-btn {
+  flex: 1 1 0;
+  min-width: 140px;
+  max-width: 240px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(6, 182, 212, 0.6);
+  background: rgba(6, 182, 212, 0.14);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.pad-overlay-btn:active {
+  transform: scale(0.96);
+  background: rgba(6, 182, 212, 0.35);
+}
+
+.pad-overlay-btn .pad-overlay-btn-icon {
+  display: block;
+  font-size: 1.8rem;
+  margin-bottom: 4px;
+}
+
+.pad-rotate {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+  color: var(--text-dim);
+}
+
+.pad-rotate-icon {
+  font-size: 3rem;
+  animation: pad-rotate-hint 2s ease-in-out infinite;
+}
+
+@keyframes pad-rotate-hint {
+  0%, 30% { transform: rotate(0deg); }
+  60%, 100% { transform: rotate(-90deg); }
+}
+
+@media (orientation: portrait) {
+  .pad-rotate {
+    display: flex;
+  }
+}

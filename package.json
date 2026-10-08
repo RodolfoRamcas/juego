@@ -1,0 +1,9 @@
+{
+  "name": "net-metro",
+  "private": true,
+  "version": "1.0.0",
+  "description": "NetMetro - Simulador de Tráfico y Tránsito de Redes (sitio estático, sin framework).",
+  "scripts": {
+    "build": "node scripts/generate-supabase-config.mjs"
+  }
+}

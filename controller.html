@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f19">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>NetMetro | Mando</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <link rel="stylesheet" href="css/controller.css?v=1">
+</head>
+<body>
+  <main id="pad">
+    <!-- Barra superior: estado de conexión y del juego -->
+    <header class="pad-topbar">
+      <div class="pad-status">
+        <span id="pad-dot" class="pad-dot"></span>
+        <span id="pad-status-label">Conectando...</span>
+      </div>
+      <div class="pad-stats">
+        <span class="pad-chip" title="Piezas de cable">🧩 <strong id="pad-budget">0</strong></span>
+        <span class="pad-chip">SEM <strong id="pad-week">1</strong></span>
+      </div>
+      <div class="pad-top-actions">
+        <button id="pad-btn-center" class="pad-icon-btn" title="Centrar cámara">🎯</button>
+        <button id="pad-btn-pause" class="pad-icon-btn" title="Pausar / Reanudar">⏸</button>
+      </div>
+    </header>
+
+    <!-- Zona izquierda: stick -->
+    <section id="stick-zone" class="pad-stick-zone">
+      <div id="stick-base" class="pad-stick-base">
+        <div id="stick-knob" class="pad-stick-knob"></div>
+      </div>
+    </section>
+
+    <!-- Zona derecha: mejoras manuales y botones de cable -->
+    <section class="pad-right-zone">
+      <div id="pad-tools" class="pad-tools">
+        <!-- Generado desde PAD_TOOLS (src/remote/protocol.js) -->
+      </div>
+      <div class="pad-actions">
+        <button id="pad-btn-erase" class="pad-hold-btn pad-erase" data-hold="erase">
+          <span class="pad-hold-icon">✂️</span>
+          <span class="pad-hold-label">QUITAR</span>
+        </button>
+        <button id="pad-btn-put" class="pad-hold-btn pad-put" data-hold="put">
+          <span class="pad-hold-icon">🔌</span>
+          <span class="pad-hold-label">PONER</span>
+        </button>
+      </div>
+    </section>
+
+    <div id="pad-toast" class="pad-toast"></div>
+  </main>
+
+  <!-- Capa superpuesta: conexión, menú, recompensa semanal, fin de partida -->
+  <div id="pad-overlay" class="pad-overlay hidden">
+    <div class="pad-overlay-box">
+      <h2 id="pad-overlay-title"></h2>
+      <p id="pad-overlay-message"></p>
+      <div id="pad-overlay-actions" class="pad-overlay-actions"></div>
+    </div>
+  </div>
+
+  <!-- Aviso en vertical: el mando se usa en horizontal -->
+  <div id="pad-rotate" class="pad-rotate">
+    <div class="pad-rotate-icon">📱</div>
+    <p>Gira tu teléfono en <strong>horizontal</strong> para usarlo como mando</p>
+  </div>
+
+  <script type="module" src="src/remote/ControllerPad.js"></script>
+</body>
+</html>

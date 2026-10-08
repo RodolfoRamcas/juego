@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NetMetro | Simulador de Tráfico y Tránsito de Redes</title>
+  <meta name="description" content="Videojuego de gestión de infraestructura y tráfico de redes estilo Mini Metro para Ingeniería en Sistemas y Negocios Digitales.">
+  
+  <!-- Tipografía Google Fonts: Outfit & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  
+  <!-- Supabase JS Client desde CDN oficial -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- Hojas de Estilos -->
+  <link rel="stylesheet" href="css/style.css?v=2">
+  <link rel="stylesheet" href="css/ui.css?v=2">
+</head>
+<body>
+  <div id="app-container">
+    
+    <!-- CANVAS PRINCIPAL DEL JUEGO -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- PESTAÑA CENTRAL SEMITRANSPARENTE: solo para eventos grandes (DDoS, Demanda Pico) -->
+    <div id="event-banner-container"></div>
+
+    <!-- BARRA DE REINICIO RÁPIDO: aparece solo mientras se mantiene presionada la tecla R -->
+    <div id="restart-hold-indicator" class="hidden">
+      <span class="restart-hold-label">Reiniciando partida...</span>
+      <div class="restart-hold-track">
+        <div id="restart-hold-fill" class="restart-hold-fill"></div>
+      </div>
+      <span class="restart-hold-hint">Suelta R para cancelar</span>
+    </div>
+
+    <!-- PESTAÑA PARA OCULTAR/MOSTRAR EL PANEL SUPERIOR -->
+    <button id="btn-toggle-top-hud" class="hud-layer hidden hud-toggle-tab hud-tab-top" title="Ocultar panel superior (H)">▲</button>
+
+    <!-- HUD SUPERIOR EN PARTIDA -->
+    <header id="game-hud" class="hud-layer hidden">
+      <!-- Izquierda: Estado de la Red y Telemetría -->
+      <div class="hud-card telemetry-card">
+        <div class="hud-item">
+          <span class="hud-label">MODO</span>
+          <span id="hud-mission-name" class="hud-value highlight">Supervivencia Infinita</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item">
+          <span class="hud-label">TRÁFICO ENVIADO</span>
+          <span id="hud-packets-count" class="hud-value">0 pkts</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item">
+          <span class="hud-label">ANCHO DE BANDA</span>
+          <span id="hud-bandwidth" class="hud-value">0.0 Gbps</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item">
+          <span class="hud-label">LATENCIA MEDIA</span>
+          <span id="hud-latency" class="hud-value text-good">12 ms</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item">
+          <span class="hud-label">PAQUETES PERDIDOS</span>
+          <span id="hud-packets-lost" class="hud-value text-good">0 / 8</span>
+        </div>
+      </div>
+
+      <!-- Centro: Reloj de Red (Ciclo Semanal) -->
+      <div class="hud-card clock-card">
+        <div class="clock-display">
+          <span id="hud-day-name">LUN</span>
+          <span id="hud-time">09:00</span>
+          <span id="hud-week-badge" class="badge">SEM 1</span>
+        </div>
+        <div class="week-progress-container">
+          <div id="week-progress-bar" class="week-progress-fill"></div>
+        </div>
+      </div>
+
+      <!-- Derecha: Controles de Tiempo y Audio -->
+      <div class="hud-card controls-card">
+        <span id="firewall-badge" class="status-badge hidden" title="Firewall Anti-DDoS: 60% de probabilidad de bloquear cada ataque (si falla, el ataque duplica su potencia). Defiende hasta 2 ataques antes de perderse.">🛡️</span>
+        <span id="balancer-badge" class="status-badge hidden" title="Balanceador de Carga: mientras dure un ataque DDoS, reduce a la mitad el bloqueo de recepción de los nodos afectados. Defiende hasta 3 ataques antes de perderse.">⚖️</span>
+        <button id="btn-speed-pause" class="btn-icon" title="Pausar (Espacio)">⏸</button>
+        <button id="btn-speed-1x" class="btn-icon active" title="Velocidad normal (1)">▶</button>
+        <button id="btn-speed-2x" class="btn-icon" title="Velocidad rápida (2)">▶▶</button>
+        <div class="hud-divider"></div>
+        <button id="btn-open-pad" class="btn-icon" title="Usar el móvil como mando">📱</button>
+        <button id="btn-center-camera" class="btn-icon" title="Centrar cámara en la red (WASD/flechas, clic central o rueda para moverte)">🎯</button>
+        <button id="btn-toggle-sound" class="btn-icon" title="Silenciar / Activar Sonido">🔊</button>
+        <button id="btn-in-game-menu" class="btn-icon" title="Menú Principal">⚙</button>
+      </div>
+    </header>
+
+    <!-- HUD INFERIOR: PRESUPUESTO DE CABLE Y HERRAMIENTAS -->
+    <footer id="road-tray" class="hud-layer hidden">
+      <!-- Sección: Presupuesto de Cable -->
+      <div class="tray-section">
+        <div class="tray-header-row">
+          <span class="tray-title">🧩 PIEZAS DE CABLE</span>
+          <span id="road-budget-count" class="tray-counter badge">0 piezas</span>
+        </div>
+        <div class="specials-container">
+          <!-- Herramienta de tendido (por defecto) -->
+          <div id="tool-road" class="special-card active" title="Arrastra sobre el mapa para tender cable. Clic derecho retira un tramo (reembolsa 1 pieza).">
+            <span class="special-icon">🔌</span>
+            <div class="special-meta">
+              <span class="special-name">Cable</span>
+              <span class="special-qty">Arrastrar</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tray-divider"></div>
+
+      <!-- Sección: Hardware Especial (Inicia en 0) -->
+      <div class="tray-section">
+        <div class="tray-header-row">
+          <span class="tray-title">⚡ HARDWARE ESPECIAL</span>
+        </div>
+        <div class="specials-container">
+          <!-- Especial 1: Acelerador de Protocolo -->
+          <div id="tool-accelerator" class="special-card disabled" title="Acelerador de Protocolo: Duplica la velocidad de los paquetes en un tramo de cable. (Consíguelo en mejoras del Domingo)">
+            <span class="special-icon">⚡</span>
+            <div class="special-meta">
+              <span class="special-name">Acelerador</span>
+              <span id="badge-count-accelerator" class="special-qty">0 disp.</span>
+            </div>
+          </div>
+
+          <!-- Especial 2: Switch de Red Gigabit -->
+          <div id="tool-switch" class="special-card disabled" title="Switch de Red Gigabit: Instálalo en el nodo que elijas para que acepte hasta 5 entregas seguidas sin cooldown y reduzca a 0.5s el cooldown normal, además de ampliar su búfer.">
+            <span class="special-icon">🔀</span>
+            <div class="special-meta">
+              <span class="special-name">Switch</span>
+              <span id="badge-count-switch" class="special-qty">0 disp.</span>
+            </div>
+          </div>
+
+          <!-- Especial 3: Refuerzo de Cable -->
+          <div id="tool-reinforcement" class="special-card disabled" title="Refuerzo de Cable: Instálalo sobre un tramo de cable para volverlo completamente inmune al Corte de Fibra (nunca podrá ser cortado). (Consíguelo en mejoras del Domingo, 6 piezas por vez)">
+            <span class="special-icon">🔩</span>
+            <div class="special-meta">
+              <span class="special-name">Refuerzo</span>
+              <span id="badge-count-reinforcement" class="special-qty">0 disp.</span>
+            </div>
+          </div>
+
+          <!-- Especial 4: Limitador de Requests -->
+          <div id="tool-limiter" class="special-card disabled" title="Limitador de Requests: Instálalo en un nodo emisor para reducir en 75% los paquetes rojos que genera si un ataque DDoS lo arrastra a originar tráfico malicioso. (Consíguelo en mejoras del Domingo)">
+            <span class="special-icon">🚦</span>
+            <div class="special-meta">
+              <span class="special-name">Limitador</span>
+              <span id="badge-count-limiter" class="special-qty">0 disp.</span>
+            </div>
+          </div>
+
+          <!-- Especial 5: Martillo Demoledor -->
+          <div id="tool-hammer" class="special-card disabled" title="Martillo Demoledor: Destruye permanentemente el nodo que elijas (ese nodo no vuelve a generarse y el máximo de nodos de la partida baja en 1). No se puede usar sobre una forma que solo tenga un par: se necesitan al menos 2 pares de esa forma. (Consíguelo en mejoras del Domingo, solo desde la Semana 8)">
+            <span class="special-icon">🔨</span>
+            <div class="special-meta">
+              <span class="special-name">Martillo</span>
+              <span id="badge-count-hammer" class="special-qty">0 disp.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- PESTAÑA PARA OCULTAR/MOSTRAR EL PANEL INFERIOR -->
+    <button id="btn-toggle-bottom-hud" class="hud-layer hidden hud-toggle-tab hud-tab-bottom" title="Ocultar panel inferior (H)">▼</button>
+
+    <!-- ==================== PANTALLAS MODALES ==================== -->
+
+    <!-- 1. PANTALLA INICIAL (START MENU) -->
+    <section id="screen-start" class="modal-overlay active">
+      <div class="modal-content main-menu-box">
+        <div class="badge-tag">ISND - NUEVAS TECNOLOGÍAS</div>
+        <h1 class="game-logo">NET<span>METRO</span></h1>
+        <p class="game-subtitle">Simulador de Tráfico y Tránsito de Redes de Datos</p>
+        
+        <div class="team-card">
+          <span class="team-title">EQUIPO DE DESARROLLO</span>
+          <div class="team-members">
+            <span class="member-name">👨‍💻 Rodolfo Ramírez Castillo</span>
+            <span class="member-name">👨‍💻 Jorge del Angel Mascareñas</span>
+          </div>
+        </div>
+
+        <div class="menu-actions">
+          <button id="btn-play-game" class="btn-primary">🚀 INICIAR PARTIDA</button>
+          <div class="btn-row">
+            <button id="btn-open-instructions" class="btn-ghost">📖 Instrucciones</button>
+            <button id="btn-open-leaderboard" class="btn-ghost">🏆 Clasificación</button>
+          </div>
+          <button id="btn-open-pad-menu" class="btn-ghost">📱 Usar el móvil como mando</button>
+        </div>
+
+        <div class="menu-footer">
+          <span>Inspirado en Mini Metro | Ingeniería en Sistemas y Negocios Digitales</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. MODAL DE RECOMPENSA DE FIN DE SEMANA (MINI METRO STYLE) -->
+    <section id="modal-upgrade" class="modal-overlay hidden">
+      <div class="modal-content modal-md upgrade-box">
+        <div class="upgrade-header">
+          <div class="badge-tag">FIN DE SEMANA COMPLETADO</div>
+          <h2>SELECCIONA UNA MEJORA DE INFRAESTRUCTURA</h2>
+          <p>Tu proveedor de telecomunicaciones te otorga un nuevo recurso para tu red.</p>
+        </div>
+
+        <div id="upgrade-options-container" class="upgrade-cards-grid">
+          <!-- Generado dinámicamente con 2 opciones aleatorias -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. MODAL DE GAME OVER / CAÍDA DE LA RED -->
+    <section id="modal-gameover" class="modal-overlay hidden">
+      <div class="modal-content modal-md gameover-box">
+        <div class="badge-danger">¡COLAPSO DEL SISTEMA!</div>
+        <h2>RED SATURADA (BUFFER OVERFLOW)</h2>
+        <p id="gameover-cause">El búfer de un nodo permaneció saturado al 100% demasiado tiempo, causando pérdida crítica de paquetes.</p>
+
+        <div class="gameover-stats-grid">
+          <div class="stat-box">
+            <span class="stat-title">PAQUETES ENTREGADOS</span>
+            <span id="stat-go-packets" class="stat-val">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-title">TIEMPO OPERATIVO</span>
+            <span id="stat-go-time" class="stat-val">Semana 1</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-title">TASA MÁXIMA</span>
+            <span id="stat-go-throughput" class="stat-val">0.0 Gbps</span>
+          </div>
+        </div>
+
+        <!-- Formulario para Supabase Leaderboard -->
+        <div class="leaderboard-submit-form">
+          <label for="player-nickname">Registra tu récord en el Ranking Global:</label>
+          <div class="input-submit-row">
+            <input type="text" id="player-nickname" placeholder="Tu Nombre o Alias" maxlength="20" autofocus>
+            <button id="btn-submit-score" class="btn-primary">Guardar Récord</button>
+          </div>
+          <span id="submit-status" class="status-msg"></span>
+        </div>
+
+        <div class="gameover-actions">
+          <button id="btn-retry" class="btn-primary">Reintentar Partida</button>
+          <button id="btn-view-board" class="btn-secondary">Ver Tablero</button>
+          <button id="btn-go-menu" class="btn-secondary">Volver al Menú</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Botón flotante para volver al resumen de Game Over tras pulsar "Ver Tablero" -->
+    <button id="btn-return-to-summary" class="hidden">↩ Volver al resumen</button>
+
+    <!-- 4. MODAL DE CLASIFICACIÓN (LEADERBOARD SUPABASE) -->
+    <section id="modal-leaderboard" class="modal-overlay hidden">
+      <div class="modal-content modal-lg">
+        <div class="modal-header-row">
+          <h2>🏆 RANKING MUNDIAL DE INGENIEROS DE RED</h2>
+          <button id="btn-close-leaderboard" class="btn-icon">✖</button>
+        </div>
+        <div class="leaderboard-toolbar">
+          <div class="status-indicator">
+            <span id="supabase-status-dot" class="dot-indicator dot-offline"></span>
+            <span id="supabase-status-text">Sincronizando puntuaciones...</span>
+          </div>
+          <button id="btn-refresh-leaderboard" class="btn-sm btn-ghost">🔄 Actualizar</button>
+        </div>
+
+        <div class="table-container">
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Ingeniero / Alias</th>
+                <th>Modo</th>
+                <th>Paquetes</th>
+                <th>Semanas</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+              <tr>
+                <td colspan="6" style="text-align:center; padding: 20px;">Cargando puntuaciones...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4.5 MODAL DEL MANDO MÓVIL (QR DE VINCULACIÓN) -->
+    <section id="modal-pad" class="modal-overlay hidden">
+      <div class="modal-content modal-md pad-box">
+        <div class="modal-header-row">
+          <h2>📱 MÓVIL COMO MANDO</h2>
+          <button id="btn-close-pad" class="btn-icon">✖</button>
+        </div>
+
+        <div class="pad-pair-layout">
+          <div id="pad-qr" class="pad-qr"></div>
+          <div class="pad-pair-info">
+            <ol class="pad-steps">
+              <li>Escanea el código con la cámara de tu teléfono.</li>
+              <li>Sujeta el teléfono en <strong>horizontal</strong>, con ambas manos.</li>
+              <li>El <strong>stick izquierdo</strong> mueve el cursor; los botones de la derecha <strong>ponen y quitan cable</strong> y colocan las mejoras bajo el cursor.</li>
+            </ol>
+            <div class="status-indicator">
+              <span id="pad-status-dot" class="dot-indicator dot-offline"></span>
+              <span id="pad-status-text">Preparando sala...</span>
+            </div>
+            <a id="pad-link" class="pad-link" target="_blank" rel="noopener"></a>
+            <p id="pad-warning" class="status-msg error hidden"></p>
+            <button id="btn-pad-disconnect" class="btn-secondary btn-sm hidden">Desconectar mando</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. MODAL DE INSTRUCCIONES -->
+    <section id="modal-instructions" class="modal-overlay hidden">
+      <div class="modal-content modal-lg instructions-box">
+        <div class="modal-header-row">
+          <h2>📖 MANUAL DE OPERACIONES DE RED</h2>
+          <button id="btn-close-instructions" class="btn-icon">✖</button>
+        </div>
+
+        <div class="instructions-steps">
+          <div class="instruction-card">
+            <div class="inst-icon">▲TX ➔ ▼RX</div>
+            <h4>1. Nodos y Paquetes de Datos</h4>
+            <p>Cada nodo nace en pareja con otro de su misma forma, con un rol fijo marcado debajo del nodo: <strong>▲ TX (emisor)</strong> solo origina paquetes, <strong>▼ RX (receptor)</strong> es el único que los acepta. El tráfico fluye siempre en un solo sentido (como un cliente que solicita y un servidor que responde), nunca al revés. La Semana 1 arranca con solo 3 figuras (círculo, cuadrado, triángulo); desde la Semana 4 se desbloquea una figura nueva cada 2 semanas.</p>
+          </div>
+
+          <div class="instruction-card">
+            <div class="inst-icon">🖱️ ➔ 🔌</div>
+            <h4>2. Tender Cable (Arrastrar)</h4>
+            <p><strong>Mantén presionado el clic izquierdo y arrastra</strong> sobre la grilla para tender tramos de cable contiguos, conectando tus nodos. Cada tramo consume <strong>1 pieza</strong> de tu presupuesto. Con <strong>clic derecho</strong> retiras un tramo (reembolsa 1 pieza).</p>
+          </div>
+
+          <div class="instruction-card">
+            <div class="inst-icon">🧭 ➔ 🗺️</div>
+            <h4>3. Cámara y Desplazamiento</h4>
+            <p>La grilla tiene un poco más de espacio que tu pantalla. Muévete con <strong>WASD o las flechas</strong>, arrastrando con el <strong>clic central</strong> (o Alt+clic izquierdo) del mouse, o con la <strong>rueda</strong>. El botón 🎯 centra la cámara sobre tu red si te pierdes. Las pequeñas pestañas ▲▼ en el borde superior/inferior (o la tecla <strong>H</strong>) ocultan los paneles para despejar la vista del mapa.</p>
+          </div>
+
+          <div class="instruction-card">
+            <div class="inst-icon">🧩 ➔ 📈</div>
+            <h4>4. Presupuesto de Piezas</h4>
+            <p>No hay un límite fijo de cable: cada Domingo recibes automáticamente <strong>más piezas</strong> para seguir expandiendo tu red. Construye con cuidado: si te quedas sin presupuesto, no podrás tender más cable hasta la próxima semana.</p>
+          </div>
+
+          <div class="instruction-card">
+            <div class="inst-icon">⏱️ ➔ ⚠️</div>
+            <h4>5. Tiempo Límite de Entrega</h4>
+            <p>Cada paquete tiene un <strong>tiempo límite</strong> para llegar a su destino (esperando en un nodo o viajando por el cable). Si se excede, el paquete se pierde justo donde estaba (verás una <strong>✕ roja</strong> marcando el lugar) y suma al contador de <strong>Paquetes Perdidos</strong>. ¡Superar el máximo permitido termina la partida!</p>
+          </div>
+
+          <div class="instruction-card">
+            <div class="inst-icon">⏳ ➔ 🚨</div>
+            <h4>6. Círculo Horario de Saturación</h4>
+            <p>Si el búfer de un nodo se llena, comenzará a salir un <strong>círculo rojo semitransparente en sentido del reloj</strong>. ¡Si el círculo se completa (360°), ocurrirá un Buffer Overflow y perderás la partida!</p>
+          </div>
+
+          <div class="instruction-card">
+            <div class="inst-icon">🔌 ➔ 🚨</div>
+            <h4>6.5. Nodo Receptor Abandonado</h4>
+            <p>Un nodo <strong>receptor</strong> (▼ RX) que no tenga un camino real de cable hasta al menos un emisor de su misma forma empieza a mostrar un <strong>círculo ámbar en sentido del reloj</strong>, igual que el de saturación (un tramo suelto que no lleva a ningún lado no cuenta como conectado). Si pasan 30 segundos así, ¡la partida termina! Es fácil olvidarse de un receptor recién aparecido: este aviso te da tiempo de reaccionar antes de que sea demasiado tarde.</p>
+          </div>
+
+          <div class="instruction-card">
+            <div class="inst-icon">🎁 ➔ ⚡</div>
+            <h4>7. Mejoras Semanales y Especiales</h4>
+            <p>Además de las piezas automáticas, cada Domingo eliges 1 de 2 mejoras: <strong>Acelerador de Protocolo</strong> (acelera un tramo para siempre), <strong>Firewall</strong> (icono 🛡️×2 arriba mientras le queden usos: 60% de probabilidad de bloquear cada ataque DDoS que enfrente; se gasta 1 uso por ataque, bloquee o no, y al agotarse se pierde), un <strong>Switch de Red</strong> (instálalo en el nodo que elijas: acepta hasta 5 entregas seguidas sin cooldown y reduce a 0.5s su enfriamiento normal, además de ampliar su búfer), un <strong>Refuerzo de Cable</strong> (te da 6 piezas para instalar sobre tramos y volverlos completamente inmunes al Corte de Fibra), un <strong>Limitador de Requests</strong> (instálalo en un nodo emisor para reducir en 75% los paquetes rojos que genera si un DDoS lo arrastra a originar tráfico malicioso), o un <strong>Balanceador de Carga</strong> (icono ⚖️×3 arriba mientras le queden usos: mientras dure un ataque DDoS que enfrente, reduce a la mitad el bloqueo de recepción de los nodos golpeados; se gasta 1 uso por ataque y al agotarse se pierde), o, desde la <strong>Semana 8</strong>, un <strong>Martillo Demoledor</strong> 🔨 (destruye permanentemente el nodo que elijas: ese nodo no vuelve a generarse nunca y el máximo de nodos posibles de toda la partida baja en 1 para siempre, incluso si su par de la misma forma sigue en pie; eso sí, no se puede usar sobre una forma que solo tenga un único par en pie, para no borrarla del todo). Firewall y Balanceador vuelven a poder salir en las recompensas una vez que se agotan.</p>
+          </div>
+
+          <div class="instruction-card">
+            <div class="inst-icon">🚧</div>
+            <h4>8. Eventos de Red</h4>
+            <p>Un <strong>ataque DDoS</strong> marca un nodo con un anillo rojo pulsante e inunda específicamente su forma con paquetes rojos por el mismo cableado. Un paquete DDoS <strong>no se puede entregar normalmente</strong>: si corta ese tramo (clic derecho) y el paquete queda más de 0.5s sin poder avanzar, se autodestruye solo y NO cuenta como paquete perdido; pero si logra llegar al nodo receptor, un sector semitransparente en <strong>sentido contrahorario</strong> alrededor del nodo muestra que quedó <strong>sin poder recibir nada durante 10 segundos</strong> (5 con el Balanceador de Carga activo; cada impacto adicional reinicia ese bloqueo). Nunca ocurre en la Semana 1, desde la Semana 4 es mucho más frecuente, y desde la Semana 7 tiene más potencia base. El <strong>Firewall</strong> (🛡️) tiene 60% de probabilidad de bloquearlo por completo; si falla, la potencia del ataque se duplica. Nunca hay dos eventos (DDoS, Corte de Cable, Demanda Pico) activos al mismo tiempo. Un <strong>corte de cable</strong> bloquea temporalmente varios tramos a la vez por mantenimiento, y desde la Semana 5 corta todavía más tramos y tarda más en repararlos; el tráfico de cada uno se retoma solo apenas se repara. La <strong>Demanda Pico</strong> genera una ráfaga extra de tráfico desde la mitad de los nodos emisores (elegidos al azar en cada ráfaga) desde la Semana 5, garantizada al menos 1 vez por semana desde entonces. Desde esa misma semana, además, el tráfico normal se vuelve más rápido y errático (los nodos dejan de sentirse sincronizados entre sí).</p>
+          </div>
+
+          <div class="instruction-card">
+            <div class="inst-icon">🟣 ➔ 🔀</div>
+            <h4>9. Congestión y Enrutamiento</h4>
+            <p>Cada paquete que pasa "carga" un poco el tramo que usó. Un tramo muy transitado se tiñe de <strong>violeta</strong>, y el enrutador automáticamente preferirá caminos alternativos menos cargados si existen. Construir rutas redundantes reparte el tráfico y evita cuellos de botella. Si un paquete normal queda <strong>atascado 3 segundos</strong> en un mismo tramo (línea saturada), se reencola solo y busca otro camino si hay uno disponible.</p>
+          </div>
+
+          <div class="instruction-card">
+            <div class="inst-icon">🚦 ➔ 🔵</div>
+            <h4>10. Colas de Tráfico Real</h4>
+            <p>Cada casilla de cable aguanta hasta <strong>2 paquetes a la vez</strong>: si un tercero llega, espera parado y pasa justo después de que alguno se libere. Además, un nodo queda "enfriándose" (anillo azul) un instante tras cada entrega, así que los siguientes paquetes esperan su turno afuera antes de poder entrar.</p>
+          </div>
+        </div>
+
+        <div class="controls-guide">
+          <strong>Atajos y Controles:</strong> [Arrastrar] Tender cable | [Clic Derecho] Retirar tramo | [WASD/Flechas, Clic Central o Rueda] Mover cámara | [🎯] Centrar cámara | [H] Ocultar/Mostrar paneles | [Espacio] Pausar | [1] 1x Normal | [2] 2x Rápido | [Mantener R] Reiniciar partida (layout nuevo) | [📱] Usar el móvil como mando (stick + botones, en horizontal)
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ARCHIVO PRINCIPAL DE ENTRADA ES MODULES -->
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
